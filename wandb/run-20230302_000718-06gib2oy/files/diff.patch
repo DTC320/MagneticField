@@ -1,0 +1,33 @@
+diff --git a/EXE/AE/ae.py b/EXE/AE/ae.py
+index 07f263b..a8f1bc8 100644
+--- a/EXE/AE/ae.py
++++ b/EXE/AE/ae.py
+@@ -118,7 +118,7 @@ if __name__ == '__main__':
+     #2 Net
+     net = AE(1,28,28)
+     loss_fn = nn.MSELoss()
+-    opt = optim.SDG(net.parameters(), lr = 0.01)
++    opt = optim.SGD(net.parameters(), lr = 0.01)
+ 
+ 
+ 
+@@ -143,8 +143,7 @@ if __name__ == '__main__':
+             opt.step()
+ 
+             if train_step % 100 == 0:
+-                wandb.log({'train_loss': _loss,
+-                           'train_step': train_step})
++                wandb.log({'train_loss': _loss})
+                 print(f"Train {epoch + 1}/{total_epoch}  {train_step} loss:{_loss.item():.3f}")
+             train_step += 1
+ 
+@@ -159,8 +158,7 @@ if __name__ == '__main__':
+                 _loss = loss_fn(_outputs, images)
+ 
+                 if test_step % 10 == 0:
+-                    wandb.log({'test_loss': _loss,
+-                               'test_step': test_step})
++                    wandb.log({'test_loss': _loss})
+                     print(f"Test {epoch + 1}/{total_epoch}  {test_step} loss:{_loss.item():.3f}")
+                 test_step += 1
+ 
