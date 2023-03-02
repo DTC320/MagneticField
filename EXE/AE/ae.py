@@ -166,5 +166,5 @@ if __name__ == '__main__':
         #c. save
         if epoch % 2 == 0:
             torch.save(net, f'./output/ae/models/m_{epoch}.pkl')
-
+            
     wandb.finish()
