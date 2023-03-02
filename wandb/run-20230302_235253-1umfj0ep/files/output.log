@@ -1,0 +1,80 @@
+Train 1/100  0 loss:0.283
+Train 1/100  100 loss:0.296
+Train 1/100  200 loss:0.270
+Train 1/100  300 loss:0.279
+Train 1/100  400 loss:0.294
+Train 1/100  500 loss:0.330
+Train 1/100  600 loss:0.270
+Test 1/100  0 loss:0.221
+Test 1/100  10 loss:0.234
+Test 1/100  20 loss:0.198
+Test 1/100  30 loss:0.247
+Test 1/100  40 loss:0.259
+Test 1/100  50 loss:0.276
+Test 1/100  60 loss:0.236
+Test 1/100  70 loss:0.232
+Test 1/100  80 loss:0.239
+Test 1/100  90 loss:0.230
+Test 1/100  100 loss:0.301
+Test 1/100  110 loss:0.232
+Test 1/100  120 loss:0.247
+Test 1/100  130 loss:0.223
+Test 1/100  140 loss:0.236
+Test 1/100  150 loss:0.241
+Test 1/100  160 loss:0.221
+Test 1/100  170 loss:0.215
+Test 1/100  180 loss:0.255
+Test 1/100  190 loss:0.246
+Test 1/100  200 loss:0.222
+Test 1/100  210 loss:0.289
+Test 1/100  220 loss:0.270
+Test 1/100  230 loss:0.230
+Test 1/100  240 loss:0.267
+Test 1/100  250 loss:0.231
+Test 1/100  260 loss:0.248
+Test 1/100  270 loss:0.230
+Test 1/100  280 loss:0.251
+Test 1/100  290 loss:0.209
+Test 1/100  300 loss:0.258
+Test 1/100  310 loss:0.258
+Test 1/100  320 loss:0.253
+Test 1/100  330 loss:0.375
+Test 1/100  340 loss:0.274
+Test 1/100  350 loss:0.272
+Test 1/100  360 loss:0.296
+Test 1/100  370 loss:0.292
+Test 1/100  380 loss:0.397
+Test 1/100  390 loss:0.258
+Test 1/100  400 loss:0.284
+Test 1/100  410 loss:0.150
+Test 1/100  420 loss:0.272
+Test 1/100  430 loss:0.232
+Test 1/100  440 loss:0.275
+Test 1/100  450 loss:0.276
+Test 1/100  460 loss:0.302
+Test 1/100  470 loss:0.228
+Test 1/100  480 loss:0.255
+Test 1/100  490 loss:0.416
+Test 1/100  500 loss:0.337
+Test 1/100  510 loss:0.273
+Test 1/100  520 loss:0.287
+Test 1/100  530 loss:0.338
+Test 1/100  540 loss:0.243
+Test 1/100  550 loss:0.238
+Test 1/100  560 loss:0.258
+Test 1/100  570 loss:0.340
+Test 1/100  580 loss:0.185
+Test 1/100  590 loss:0.262
+Test 1/100  600 loss:0.262
+Test 1/100  610 loss:0.216
+Test 1/100  620 loss:0.205
+Traceback (most recent call last):
+  File "/Users/dongtianchi/Documents/GIT/Magnetic/EXE/AE/ae.py", line 172, in <module>
+    torch.save(net, f'./EXE/AE/output/models./m_{epoch}.pkl')
+  File "/opt/anaconda3/envs/ForEXE/lib/python3.10/site-packages/torch/serialization.py", line 376, in save
+    with _open_file_like(f, 'wb') as opened_file:
+  File "/opt/anaconda3/envs/ForEXE/lib/python3.10/site-packages/torch/serialization.py", line 230, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+  File "/opt/anaconda3/envs/ForEXE/lib/python3.10/site-packages/torch/serialization.py", line 211, in __init__
+    super(_open_file, self).__init__(open(name, mode))
+FileNotFoundError: [Errno 2] No such file or directory: './EXE/AE/output/models./m_0.pkl'

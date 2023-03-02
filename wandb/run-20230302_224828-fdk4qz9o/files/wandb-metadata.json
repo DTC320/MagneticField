@@ -1,0 +1,42 @@
+{
+    "os": "macOS-10.16-x86_64-i386-64bit",
+    "python": "3.10.9",
+    "heartbeatAt": "2023-03-02T21:48:30.000555",
+    "startedAt": "2023-03-02T21:48:28.330261",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "/Users/dongtianchi/Documents/GIT/Magnetic/EXE/AE/ae.py",
+    "codePath": "EXE/AE/ae.py",
+    "git": {
+        "remote": "git@github.com:/DTC320/MagneticFields.git",
+        "commit": "9a93d0499625479bbdcc76ee107fbec2c03e53a9"
+    },
+    "email": "dongtianchi@outlook.com",
+    "root": "/Users/dongtianchi/Documents/GIT/Magnetic",
+    "host": "MacBook-Pro-MAX.local",
+    "username": "dongtianchi",
+    "executable": "/opt/anaconda3/envs/ForEXE/bin/python",
+    "cpu_count": 12,
+    "cpu_count_logical": 12,
+    "cpu_freq": {
+        "current": 2400,
+        "min": 2400,
+        "max": 2400
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 2400,
+            "min": 2400,
+            "max": 2400
+        }
+    ],
+    "disk": {
+        "total": 1858.1917190551758,
+        "used": 486.3930130004883
+    },
+    "memory": {
+        "total": 64.0
+    }
+}

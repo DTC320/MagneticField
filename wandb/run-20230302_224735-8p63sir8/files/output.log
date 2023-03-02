@@ -1,0 +1,80 @@
+Train 1/10  0 loss:0.279
+Train 1/10  100 loss:0.258
+Train 1/10  200 loss:0.205
+Train 1/10  300 loss:0.182
+Train 1/10  400 loss:0.172
+Train 1/10  500 loss:0.177
+Train 1/10  600 loss:0.134
+Test 1/10  0 loss:0.127
+Test 1/10  10 loss:0.120
+Test 1/10  20 loss:0.114
+Test 1/10  30 loss:0.118
+Test 1/10  40 loss:0.122
+Test 1/10  50 loss:0.135
+Test 1/10  60 loss:0.113
+Test 1/10  70 loss:0.122
+Test 1/10  80 loss:0.118
+Test 1/10  90 loss:0.122
+Test 1/10  100 loss:0.141
+Test 1/10  110 loss:0.110
+Test 1/10  120 loss:0.109
+Test 1/10  130 loss:0.130
+Test 1/10  140 loss:0.115
+Test 1/10  150 loss:0.134
+Test 1/10  160 loss:0.116
+Test 1/10  170 loss:0.107
+Test 1/10  180 loss:0.135
+Test 1/10  190 loss:0.119
+Test 1/10  200 loss:0.110
+Test 1/10  210 loss:0.155
+Test 1/10  220 loss:0.149
+Test 1/10  230 loss:0.114
+Test 1/10  240 loss:0.142
+Test 1/10  250 loss:0.145
+Test 1/10  260 loss:0.124
+Test 1/10  270 loss:0.132
+Test 1/10  280 loss:0.128
+Test 1/10  290 loss:0.119
+Test 1/10  300 loss:0.135
+Test 1/10  310 loss:0.124
+Test 1/10  320 loss:0.127
+Test 1/10  330 loss:0.164
+Test 1/10  340 loss:0.131
+Test 1/10  350 loss:0.128
+Test 1/10  360 loss:0.133
+Test 1/10  370 loss:0.144
+Test 1/10  380 loss:0.237
+Test 1/10  390 loss:0.131
+Test 1/10  400 loss:0.152
+Test 1/10  410 loss:0.083
+Test 1/10  420 loss:0.138
+Test 1/10  430 loss:0.137
+Test 1/10  440 loss:0.125
+Test 1/10  450 loss:0.115
+Test 1/10  460 loss:0.169
+Test 1/10  470 loss:0.127
+Test 1/10  480 loss:0.125
+Test 1/10  490 loss:0.247
+Test 1/10  500 loss:0.187
+Test 1/10  510 loss:0.132
+Test 1/10  520 loss:0.149
+Test 1/10  530 loss:0.203
+Test 1/10  540 loss:0.109
+Test 1/10  550 loss:0.133
+Test 1/10  560 loss:0.131
+Test 1/10  570 loss:0.160
+Test 1/10  580 loss:0.117
+Test 1/10  590 loss:0.129
+Test 1/10  600 loss:0.138
+Test 1/10  610 loss:0.110
+Test 1/10  620 loss:0.106
+Traceback (most recent call last):
+  File "/Users/dongtianchi/Documents/GIT/Magnetic/EXE/AE/ae.py", line 168, in <module>
+    torch.save(net, f'./output/ae/models/m_{epoch}.pkl')
+  File "/opt/anaconda3/envs/ForEXE/lib/python3.10/site-packages/torch/serialization.py", line 376, in save
+    with _open_file_like(f, 'wb') as opened_file:
+  File "/opt/anaconda3/envs/ForEXE/lib/python3.10/site-packages/torch/serialization.py", line 230, in _open_file_like
+    return _open_file(name_or_buffer, mode)
+  File "/opt/anaconda3/envs/ForEXE/lib/python3.10/site-packages/torch/serialization.py", line 211, in __init__
+    super(_open_file, self).__init__(open(name, mode))
+FileNotFoundError: [Errno 2] No such file or directory: './output/ae/models/m_0.pkl'

@@ -1,0 +1,67 @@
+diff --git a/EXE/AE/ae.py b/EXE/AE/ae.py
+index 288ee79..2c4f0c8 100644
+--- a/EXE/AE/ae.py
++++ b/EXE/AE/ae.py
+@@ -1,13 +1,13 @@
++import numpy as np
+ import torch
+ import torch.nn as nn
+ import torch.optim as optim
++import torchvision
+ from torch.utils.data import DataLoader
+ from torchvision import transforms, datasets
+ import wandb
+ 
+ 
+-
+-
+ class AEEncoder(nn.Module):
+     def __init__(self, in_features, out_features, hidden_dims=None):
+         super(AEEncoder, self).__init__()
+@@ -166,5 +166,17 @@ if __name__ == '__main__':
+         #c. save
+         if epoch % 2 == 0:
+             torch.save(net, f'./output/ae/models/m_{epoch}.pkl')
+-            
++
++        #d. random prediction
++        net.eval()
++        with torch.no_grad():
++            idx = np.random.randint(0, len(testset))
++            img, label = testset[idx]
++            img = img[None, ...]
++            img0 = net(img)
++            noise_img = torch.from_numpy(np.random.normal(0.0, 1.0, size=(1, 32))).float()
++            img1 = net.generate(noise_img)
++            img = torch.cat([img, img0, img1], dim=0)
++            torchvision.utils.save_image(img, f'./output/ae/images/{epoch}_{label}.png')
++    wandb.save(net, net, f'./output/ae/models/m.pkl')   
+     wandb.finish()
+\ No newline at end of file
+diff --git a/wandb/debug-internal.log b/wandb/debug-internal.log
+index 8bb566d..d577518 120000
+--- a/wandb/debug-internal.log
++++ b/wandb/debug-internal.log
+@@ -1 +1 @@
+-run-20230302_000718-06gib2oy/logs/debug-internal.log
+\ No newline at end of file
++run-20230302_224653-zmpip7h4/logs/debug-internal.log
+\ No newline at end of file
+diff --git a/wandb/debug.log b/wandb/debug.log
+index ffd8752..1e3815f 120000
+--- a/wandb/debug.log
++++ b/wandb/debug.log
+@@ -1 +1 @@
+-run-20230302_000718-06gib2oy/logs/debug.log
+\ No newline at end of file
++run-20230302_224653-zmpip7h4/logs/debug.log
+\ No newline at end of file
+diff --git a/wandb/latest-run b/wandb/latest-run
+index 87c9931..3b0cfea 120000
+--- a/wandb/latest-run
++++ b/wandb/latest-run
+@@ -1 +1 @@
+-run-20230302_000718-06gib2oy
+\ No newline at end of file
++run-20230302_224653-zmpip7h4
+\ No newline at end of file

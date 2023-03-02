@@ -1,0 +1,80 @@
+Train 1/10  0 loss:0.271
+Train 1/10  100 loss:0.303
+Train 1/10  200 loss:0.262
+Train 1/10  300 loss:0.269
+Train 1/10  400 loss:0.290
+Train 1/10  500 loss:0.322
+Train 1/10  600 loss:0.266
+Test 1/10  0 loss:0.233
+Test 1/10  10 loss:0.246
+Test 1/10  20 loss:0.219
+Test 1/10  30 loss:0.228
+Test 1/10  40 loss:0.261
+Test 1/10  50 loss:0.275
+Test 1/10  60 loss:0.254
+Test 1/10  70 loss:0.238
+Test 1/10  80 loss:0.228
+Test 1/10  90 loss:0.244
+Test 1/10  100 loss:0.285
+Test 1/10  110 loss:0.243
+Test 1/10  120 loss:0.197
+Test 1/10  130 loss:0.237
+Test 1/10  140 loss:0.219
+Test 1/10  150 loss:0.241
+Test 1/10  160 loss:0.221
+Test 1/10  170 loss:0.209
+Test 1/10  180 loss:0.245
+Test 1/10  190 loss:0.223
+Test 1/10  200 loss:0.202
+Test 1/10  210 loss:0.272
+Test 1/10  220 loss:0.283
+Test 1/10  230 loss:0.242
+Test 1/10  240 loss:0.283
+Test 1/10  250 loss:0.228
+Test 1/10  260 loss:0.206
+Test 1/10  270 loss:0.223
+Test 1/10  280 loss:0.249
+Test 1/10  290 loss:0.213
+Test 1/10  300 loss:0.229
+Test 1/10  310 loss:0.252
+Test 1/10  320 loss:0.221
+Test 1/10  330 loss:0.335
+Test 1/10  340 loss:0.278
+Test 1/10  350 loss:0.229
+Test 1/10  360 loss:0.287
+Test 1/10  370 loss:0.296
+Test 1/10  380 loss:0.414
+Test 1/10  390 loss:0.262
+Test 1/10  400 loss:0.266
+Test 1/10  410 loss:0.168
+Test 1/10  420 loss:0.252
+Test 1/10  430 loss:0.276
+Test 1/10  440 loss:0.219
+Test 1/10  450 loss:0.281
+Test 1/10  460 loss:0.294
+Test 1/10  470 loss:0.222
+Test 1/10  480 loss:0.258
+Test 1/10  490 loss:0.380
+Test 1/10  500 loss:0.317
+Test 1/10  510 loss:0.252
+Test 1/10  520 loss:0.261
+Test 1/10  530 loss:0.325
+Test 1/10  540 loss:0.212
+Test 1/10  550 loss:0.235
+Test 1/10  560 loss:0.251
+Test 1/10  570 loss:0.371
+Test 1/10  580 loss:0.201
+Test 1/10  590 loss:0.249
+Test 1/10  600 loss:0.274
+Test 1/10  610 loss:0.202
+Test 1/10  620 loss:0.211
+Traceback (most recent call last):
+  File "/Users/dongtianchi/Documents/GIT/Magnetic/EXE/AE/ae.py", line 179, in <module>
+    torchvision.utils.save_image(img, f'./output/ae/images/{epoch}_{label}.png')
+  File "/opt/anaconda3/envs/ForEXE/lib/python3.10/site-packages/torch/autograd/grad_mode.py", line 27, in decorate_context
+    return func(*args, **kwargs)
+  File "/opt/anaconda3/envs/ForEXE/lib/python3.10/site-packages/torchvision/utils.py", line 160, in save_image
+    im.save(fp, format=format)
+  File "/opt/anaconda3/envs/ForEXE/lib/python3.10/site-packages/PIL/Image.py", line 2428, in save
+    fp = builtins.open(filename, "w+b")
+FileNotFoundError: [Errno 2] No such file or directory: './output/ae/images/0_2.png'
