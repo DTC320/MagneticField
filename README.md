@@ -16,7 +16,8 @@ The EXE folder is only for practicing.
 
 
 ## 2. VAE
-1.creat a sample demo
+1. creat a sample demo( In progress)
+2. try to slove MNIST dataset
 
 ## 3. Project itself
 
