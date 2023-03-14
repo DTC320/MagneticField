@@ -1,6 +1,6 @@
 # MagneticField
 
-The EXE folder is only for practicing. 
+The EXE folder is only for practicing.
 
 
 
