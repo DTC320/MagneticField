@@ -101,8 +101,8 @@ for epoch in range(total_epoch):
         running_loss += loss.item()
             
         if train_step % 100 == 0:
-            wandb.log({'train_loss': _loss})
-            print(f"Train {epoch + 1}\{total_epoch}  {train_step} loss:{_loss.item():.3f}")
+            wandb.log({'train_loss': loss})
+            print(f"Train {epoch + 1}\{total_epoch}  {train_step} loss:{loss.item():.3f}")
         train_step += 1
             
         #b. evaluate
@@ -118,7 +118,7 @@ for epoch in range(total_epoch):
 
             if test_step % 10 == 0:
                 wandb.log({'test_loss': loss})
-                print(f"Test {epoch + 1}\{total_epoch}  {test_step} loss:{_loss.item():.3f}")
+                print(f"Test {epoch + 1}\{total_epoch}  {test_step} loss:{loss.item():.3f}")
             test_step += 1
                 
         
