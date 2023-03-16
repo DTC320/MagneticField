@@ -1,0 +1,36 @@
+2023-03-16 18:26:04,788 INFO    StreamThr :22040 [internal.py:wandb_internal():87] W&B internal server running at pid: 22040, started at: 2023-03-16 18:26:04.786729
+2023-03-16 18:26:04,788 DEBUG   HandlerThread:22040 [handler.py:handle_request():144] handle_request: status
+2023-03-16 18:26:04,800 INFO    WriterThread:22040 [datastore.py:open_for_write():85] open: e:\GitProject\magnet\MagneticFields\Project\code\wandb\run-20230316_182604-ln7fm3bb\run-ln7fm3bb.wandb
+2023-03-16 18:26:04,801 DEBUG   SenderThread:22040 [sender.py:send():334] send: header
+2023-03-16 18:26:04,881 DEBUG   SenderThread:22040 [sender.py:send():334] send: run
+2023-03-16 18:26:05,359 INFO    SenderThread:22040 [dir_watcher.py:__init__():216] watching files in: e:\GitProject\magnet\MagneticFields\Project\code\wandb\run-20230316_182604-ln7fm3bb\files
+2023-03-16 18:26:05,363 DEBUG   HandlerThread:22040 [handler.py:handle_request():144] handle_request: check_version
+2023-03-16 18:26:05,371 INFO    SenderThread:22040 [sender.py:_start_run_threads():1065] run started: ln7fm3bb with start time 1678987564.788818
+2023-03-16 18:26:05,371 DEBUG   SenderThread:22040 [sender.py:send_request():361] send_request: summary_record
+2023-03-16 18:26:05,371 INFO    SenderThread:22040 [sender.py:_save_file():1319] saving file wandb-summary.json with policy end
+2023-03-16 18:26:05,372 DEBUG   SenderThread:22040 [sender.py:send_request():361] send_request: check_version
+2023-03-16 18:26:05,463 DEBUG   HandlerThread:22040 [handler.py:handle_request():144] handle_request: run_start
+2023-03-16 18:26:05,497 DEBUG   HandlerThread:22040 [system_info.py:__init__():31] System info init
+2023-03-16 18:26:05,497 DEBUG   HandlerThread:22040 [system_info.py:__init__():46] System info init done
+2023-03-16 18:26:05,497 INFO    HandlerThread:22040 [system_monitor.py:start():151] Starting system monitor
+2023-03-16 18:26:05,498 INFO    SystemMonitor:22040 [system_monitor.py:_start():116] Starting system asset monitoring threads
+2023-03-16 18:26:05,498 INFO    HandlerThread:22040 [system_monitor.py:probe():172] Collecting system info
+2023-03-16 18:26:05,503 INFO    SystemMonitor:22040 [interfaces.py:start():168] Started cpu
+2023-03-16 18:26:05,503 INFO    SystemMonitor:22040 [interfaces.py:start():168] Started disk
+2023-03-16 18:26:05,504 INFO    SystemMonitor:22040 [interfaces.py:start():168] Started gpu
+2023-03-16 18:26:05,504 INFO    SystemMonitor:22040 [interfaces.py:start():168] Started memory
+2023-03-16 18:26:05,521 INFO    SystemMonitor:22040 [interfaces.py:start():168] Started network
+2023-03-16 18:26:05,533 DEBUG   HandlerThread:22040 [system_info.py:probe():195] Probing system
+2023-03-16 18:26:05,534 DEBUG   HandlerThread:22040 [system_info.py:_probe_git():180] Probing git
+2023-03-16 18:26:05,537 ERROR   gpu       :22040 [interfaces.py:monitor():129] Failed to sample metric: Not Supported
+2023-03-16 18:26:05,684 DEBUG   HandlerThread:22040 [system_info.py:_probe_git():188] Probing git done
+2023-03-16 18:26:05,684 DEBUG   HandlerThread:22040 [system_info.py:probe():241] Probing system done
+2023-03-16 18:26:05,684 DEBUG   HandlerThread:22040 [system_monitor.py:probe():181] {'os': 'Windows-10-10.0.19041-SP0', 'python': '3.8.5', 'heartbeatAt': '2023-03-16T17:26:05.533982', 'startedAt': '2023-03-16T17:26:04.761908', 'docker': None, 'cuda': None, 'args': None, 'state': 'running', 'program': '<python with no main file>', 'git': {'remote': 'https://github.com/DTC320/MagneticFields.git', 'commit': '36df0609a4633f65662745fa6741789162d55ee1'}, 'email': 'dongtianchi@outlook.com', 'root': 'E:/GitProject/magnet/MagneticFields', 'host': 'DESKTOP-OL54AUF', 'username': 'Lenovo', 'executable': 'd:\\Anaconda3\\envs\\pytorch\\python.exe', 'cpu_count': 8, 'cpu_count_logical': 16, 'cpu_freq': {'current': 2304.0, 'min': 0.0, 'max': 2304.0}, 'cpu_freq_per_core': [{'current': 2304.0, 'min': 0.0, 'max': 2304.0}], 'disk': {'total': 931.4960899353027, 'used': 835.9698143005371}, 'gpu': 'NVIDIA GeForce RTX 3080 Laptop GPU', 'gpu_count': 1, 'gpu_devices': [{'name': 'NVIDIA GeForce RTX 3080 Laptop GPU', 'memory_total': 17179869184}], 'memory': {'total': 31.78838348388672}}
+2023-03-16 18:26:05,684 INFO    HandlerThread:22040 [system_monitor.py:probe():182] Finished collecting system info
+2023-03-16 18:26:05,684 INFO    HandlerThread:22040 [system_monitor.py:probe():185] Publishing system info
+2023-03-16 18:26:05,684 DEBUG   HandlerThread:22040 [system_info.py:_save_pip():51] Saving list of pip packages installed into the current environment
+2023-03-16 18:26:05,697 DEBUG   HandlerThread:22040 [system_info.py:_save_pip():67] Saving pip packages done
+2023-03-16 18:26:05,697 DEBUG   HandlerThread:22040 [system_info.py:_save_conda():74] Saving list of conda packages installed into the current environment
+2023-03-16 18:26:06,369 INFO    Thread-17 :22040 [dir_watcher.py:_on_file_created():275] file/dir created: e:\GitProject\magnet\MagneticFields\Project\code\wandb\run-20230316_182604-ln7fm3bb\files\requirements.txt
+2023-03-16 18:26:06,369 INFO    Thread-17 :22040 [dir_watcher.py:_on_file_created():275] file/dir created: e:\GitProject\magnet\MagneticFields\Project\code\wandb\run-20230316_182604-ln7fm3bb\files\conda-environment.yaml
+2023-03-16 18:26:06,369 INFO    Thread-17 :22040 [dir_watcher.py:_on_file_created():275] file/dir created: e:\GitProject\magnet\MagneticFields\Project\code\wandb\run-20230316_182604-ln7fm3bb\files\wandb-summary.json
