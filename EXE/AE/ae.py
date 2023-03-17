@@ -1,19 +1,96 @@
 import numpy as np
+import wandb
+import yaml
+import shutil
+from yaml.loader import SafeLoader
+from datetime import datetime
+from argparse import ArgumentParser
+from pathlib import Path
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torchvision
 from torch.utils.data import DataLoader
 from torchvision import transforms, datasets
-import wandb
 
+parser = ArgumentParser()
+parser.add_argument(
+    '--config', type=str,
+    default='./EXE/AE/config.yaml',
+    help="training configuration"
+)
+
+
+class CNN_Encoder(nn.Module):
+    def __init__(self, in_channel, hidden_dims):
+        super(CNN_Encoder, self).__init__()
+        layers = []
+        hidden_dims = [16, 32]
+
+        # self.conv1 = nn.Conv2d(in_channel, dim, kernel_size=5, stride=2)
+        for dim in hidden_dims:
+            layers.append(
+                nn.Sequential(
+                    nn.Conv2d(in_channel, dim, kernel_size=5, stride=2),
+                    nn.BatchNorm2d(dim),
+                    nn.PReLU(),
+                )
+            )
+            in_channel = dim
+        layers.append(nn.MaxPool2d(4))
+        self.encoder = nn.Sequential(*layers)
+
+    def forward(self, x):
+        """
+        编码器
+        :param imgs: [N, in_features]
+        :return: [N, out_features]
+        """
+        b, c, h, w = x.shape
+        x = self.encoder(x)
+        return x.view(b, -1)
+        
+
+class CNN_Decoder(nn.Module):
+    def __init__(self, in_channel, hidden_dims):
+        super(CNN_Decoder, self).__init__()
+        self.in_channel = in_channel
+        layers = []
+        hidden_dims = [32, 16]
+
+        for dim in hidden_dims:
+            layers.append(
+                nn.Sequential(
+                    nn.ConvTranspose2d(in_channel, dim, 5, stride=2),
+                    nn.ReLU(),
+                )
+            )
+            in_channel = dim
+        
+        layers.append(
+            nn.Sequential(
+                nn.ConvTranspose2d(in_channel, 1, 5, stride=2, padding=1, output_padding=1),
+                nn.Sigmoid()
+            )
+        )
+        self.decoder = nn.Sequential(*layers)
+
+    def forward(self, x):
+        """
+        编码器
+        :param imgs: [N, in_features]
+        :return: [N, out_features]
+        """
+        x = x.view(-1, self.in_channel, 1, 1)
+        return self.decoder(x)
+        
 
 class AEEncoder(nn.Module):
-    def __init__(self, in_features, out_features, hidden_dims=None):
+    def __init__(self, in_channel, in_height, in_width, out_features, hidden_dims):
         super(AEEncoder, self).__init__()
-        if hidden_dims is None:
-            hidden_dims = [512, 256, 128]
-        self.in_features = in_features
+        self.in_features = in_channel * in_height * in_width
+        in_features = in_channel * in_height * in_width
         layers = []
         for dim in hidden_dims:
             layers.append(
@@ -35,14 +112,13 @@ class AEEncoder(nn.Module):
         """
         imgs = imgs.view(-1, self.in_features)
         return self.encoder(imgs)
-
+    
 
 class AEDecoder(nn.Module):
-    def __init__(self, in_features, out_features, hidden_dims=None):
+    def __init__(self, in_features, out_channel, out_height, out_width, hidden_dims):
         super(AEDecoder, self).__init__()
-        if hidden_dims is None:
-            hidden_dims = [128, 256, 512]
         self.in_features = in_features
+        out_features = out_channel * out_height * out_width
         layers = []
         for dim in hidden_dims:
             layers.append(
@@ -52,8 +128,12 @@ class AEDecoder(nn.Module):
                     nn.PReLU()
                 )
             )
-            in_features = dim
-        layers.append(nn.Linear(in_features, out_features))
+        layers.append(
+            nn.Sequential(
+                nn.Linear(dim, out_features),
+                nn.Sigmoid()
+            )
+        )
         self.decoder = nn.Sequential(*layers)
 
     def forward(self, imgs):
@@ -67,14 +147,31 @@ class AEDecoder(nn.Module):
 
 
 class AE(nn.Module):
-    def __init__(self, img_channel, img_height, img_width):
+    def __init__(self, img_channel, img_height, img_width, hidden_dims, latent, cnn=False):
         super(AE, self).__init__()
         self.img_channel = img_channel
         self.img_height = img_height
         self.img_width = img_width
-        num_features = self.img_channel * self.img_height * self.img_width
-        self.encoder = AEEncoder(num_features, 32)
-        self.decoder = AEDecoder(32, num_features)
+
+        if cnn:
+            self.encoder = CNN_Encoder(self.img_channel, latent)
+            self.decoder = CNN_Decoder(latent, self.img_channel)
+        else:
+            self.encoder = AEEncoder(
+                self.img_channel,
+                self.img_height,
+                self.img_width,
+                latent,
+                hidden_dims
+            )
+
+            self.decoder = AEDecoder(
+                latent,
+                self.img_channel,
+                self.img_height,
+                self.img_width,
+                hidden_dims
+            )
 
     def forward(self, x):
         x = self.encoder(x)
@@ -83,55 +180,71 @@ class AE(nn.Module):
         return x
 
 if __name__ == '__main__':
-    wandb.init(project="AE_MNIST")
+    args = parser.parse_args()
+    config = yaml.load(open(args.config, 'r'), Loader=SafeLoader)
+    if config['wandb']: wandb.init(project="AE_MNIST", config=config)
 
-    _batch_size = 16
+    # prepare output folders
+    datapath = Path(__file__).parent.absolute() / '..' / '..' / 'output' / 'AE'
+    if not datapath.exists(): datapath.mkdir(parents=True)
 
     # load dataset
     transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.RandomResizedCrop(size = (28, 28), scale = (0.85, 1.0))
+        transforms.RandomResizedCrop(size=(28, 28), scale=(0.85, 1.0))
     ])
 
-    trainset = datasets.MNIST(root="./data/",
-                                transform=transform,
-                                train=True,
-                                download=True)
-
-    testset = datasets.MNIST(root="./data/",
-                               transform=transform,
-                               train=False,
-                               download=True)
+    trainset = datasets.MNIST(root="./data/", transform=transform, train=True, download=True)
+    testset = datasets.MNIST(root="./data/", transform=transform, train=False, download=True)
 
     trainloader = DataLoader(trainset,
-                             batch_size= _batch_size,
-                             shuffle= True,
-                             num_workers=2,
-                             prefetch_factor= _batch_size *2
-                             )
+                             batch_size=config['batch_size'],
+                             shuffle=True,
+                             num_workers=config['num_workers'],
+                             prefetch_factor=config['batch_size']*2
+                            )
     testloader = DataLoader(testset,
-                             batch_size=_batch_size,
-                             shuffle=False,
-                             num_workers=0,
-                             )
+                            batch_size=config['batch_size'],
+                            shuffle=False,
+                            num_workers=config['num_workers'],
+                           )
 
     #2 Net
-    net = AE(1,28,28)
-    loss_fn = nn.MSELoss()
-    opt = optim.SGD(net.parameters(), lr = 0.001)
+    net = AE(
+        img_channel=1,
+        img_height=28,
+        img_width=28,
+        hidden_dims=config['hidden_dims'],
+        latent=config['latent'],
+        cnn=config['CNN']
+    )
+
+    if config['loss'] == 'BCE':
+        loss_fn = nn.BCELoss()
+    elif config['loss'] == 'MSE':
+        loss_fn = nn.MSELoss()
+    else:
+        raise NotImplementedError()
+
+    if config['optimizer'] == 'adam':
+        opt = optim.Adam(net.parameters(), lr=config['lr'])
+    elif config['optimizer'] == 'sgd':
+        opt = optim.SGD(net.parameters(), lr=config['lr'])
+    else:
+        raise NotImplementedError()
+
+    if config['scheduler']:
+        scheduler = optim.lr_scheduler.LambdaLR(opt, lr_lambda=lambda epoch: 0.97**epoch)
 
     # GPU
     device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
     net.to(device)
     loss_fn.to(device)
     
-
     #3.train
     total_train_samples = len(trainset)
-    total_epoch = 100
-    train_step = 0
     test_step = 0
-    for epoch in range(total_epoch):
+    for epoch in range(config['epochs']):
         #a. train
         net.train(True)
         train_loss = []
@@ -145,14 +258,13 @@ if __name__ == '__main__':
             opt.zero_grad()
             _loss.backward()
             opt.step()
+            train_loss.append(_loss.item())
 
-            if train_step % 100 == 0:
-                wandb.log({'train_loss': _loss})
-                print(f"Train {epoch + 1}/{total_epoch}  {train_step} loss:{_loss.item():.3f}")
-            train_step += 1
+        if config['scheduler']: scheduler.step()
 
         #b. evaluate
         net.eval()
+        test_loss = []
         with torch.no_grad():
             for data in testloader:
                 images, _ = data
@@ -160,26 +272,29 @@ if __name__ == '__main__':
                 # forward
                 _outputs = net(images)
                 _loss = loss_fn(_outputs, images)
+                test_loss.append(_loss.item())
 
-                if test_step % 10 == 0:
-                    wandb.log({'test_loss': _loss})
-                    print(f"Test {epoch + 1}/{total_epoch}  {test_step} loss:{_loss.item():.3f}")
-                test_step += 1
+        if config['wandb']:
+            wandb.log({
+                'train_loss': sum(train_loss) / len(train_loss),
+                'test_loss': sum(test_loss) / len(test_loss)
+            })
+        print(f"Loss of {epoch+1:02d}/{config['epochs']} | Train: {sum(train_loss) / len(train_loss):.3f} | Test: {sum(test_loss) / len(test_loss):.3f}")
+
+    #c. save
+    timestamp = datetime.now().strftime("%y%m%d%H%M")
+    torch.save(net, Path(datapath, f'{timestamp}_m.pkl'))
+    shutil.copy(args.config, Path(datapath, f'{timestamp}_cfg.yaml'))
 
 
-        #c. save
-        if epoch % 2 == 0:
-            torch.save(net, f'./EXE/AE/output/models/m_{epoch}.pkl')
+    #d. random prediction
+    net.eval()
+    with torch.no_grad():
+        idx = np.random.randint(0, len(testset))
+        img, label = testset[idx]
+        img = img[None, ...]
+        img0 = net(img)
+        img = torch.cat([img, img0], dim=0)
+        torchvision.utils.save_image(img, Path(datapath, f'{timestamp}_{label}.png'))
 
-
-        #d. random prediction
-        net.eval()
-        with torch.no_grad():
-            idx = np.random.randint(0, len(testset))
-            img, label = testset[idx]
-            img = img[None, ...]
-            img0 = net(img)
-            img = torch.cat([img, img0], dim=0)
-            torchvision.utils.save_image(img, f'./EXE/AE/output/images/{epoch}_{label}.png')
-    torch.save(net, f'./EXE/AE/output/models/m.pkl')  
     wandb.finish()
