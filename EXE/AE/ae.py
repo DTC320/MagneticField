@@ -65,28 +65,21 @@ class CNN_Decoder(nn.Module):
             nn.Linear(latent, 16*hidden_dims[-1]),
             nn.PReLU()
         )
-        in_channel = hidden_dims[-1]
         layers = []
-        for dim in reversed(hidden_dims):
-            layers.append(
-                nn.Sequential(
-                    nn.ConvTranspose2d(in_channel, dim, 3, 2, 1),
-                    nn.BatchNorm2d(dim),
-                    nn.PReLU(),
-                )
+        layers.append(
+            nn.Sequential(
+                nn.ConvTranspose2d(hidden_dims[-1], hidden_dims[-1], 5, 2),
+                nn.BatchNorm2d(hidden_dims[-1]),
+                nn.PReLU(),
+                nn.ConvTranspose2d(hidden_dims[-1], hidden_dims[-2], 5, 2, output_padding=1),
+                nn.BatchNorm2d(hidden_dims[-2]),
+                nn.PReLU(),
             )
-        in_channel = dim
+        )
 
         layers.append(
             nn.Sequential(
-                nn.ConvTranspose2d(
-                    in_channel,
-                    out_channel,
-                    5,
-                    stride=2,
-                    padding=1,
-                    output_padding=1
-                ),
+                nn.ConvTranspose2d(hidden_dims[-2], out_channel, 3),
                 nn.Sigmoid()
             )
         )
@@ -100,7 +93,8 @@ class CNN_Decoder(nn.Module):
         """
         b, _ = x.shape
         x = self.dec_lin(x)
-        return self.decoder(x.view(b, -1, 4, 4))
+        x = self.decoder(x.view(b, -1, 4, 4))
+        return x
         
 
 class AEEncoder(nn.Module):
@@ -170,14 +164,19 @@ class AEDecoder(nn.Module):
 
 
 class AE(nn.Module):
-    def __init__(self, img_channel, img_height, img_width, hidden_dims, latent, cnn=False):
+    def __init__(self,
+        img_shape,
+        hidden_dims,
+        latent,
+        variational=False,
+        cnn=False
+    ):
         super(AE, self).__init__()
-        self.img_channel = img_channel
-        self.img_height = img_height
-        self.img_width = img_width
+        self.img_channel, self.img_height, self.img_width  = img_shape
+        self.variational = variational
 
         if cnn:
-            hidden_dims = [16, 32]
+            hidden_dims = [16, 64]
             self.encoder = CNN_Encoder(self.img_channel, latent, hidden_dims)
             self.decoder = CNN_Decoder(self.img_channel, latent, hidden_dims)
         else:
@@ -197,9 +196,20 @@ class AE(nn.Module):
                 hidden_dims
             )
 
+        if variational:
+            self.lin_mu = nn.Linear(latent, latent)
+            self.lin_log_sig = nn.Linear(latent, latent)
+
     def forward(self, x):
-        x = self.encoder(x)
-        x = self.decoder(x)
+        z = self.encoder(x)
+
+        if self.variational:
+            z_mu = self.lin_mu(z)
+            z_sig = torch.exp(self.lin_log_sig(z))
+            q_z = torch.distributions.Normal(z_mu, scale=z_sig)
+            z = q_z.rsample()
+
+        x = self.decoder(z)
         x = x.view(-1, self.img_channel, self.img_height, self.img_width)
         return x
 
@@ -235,11 +245,10 @@ if __name__ == '__main__':
 
     #2 Net
     net = AE(
-        img_channel=1,
-        img_height=28,
-        img_width=28,
+        img_shape=[1,28,28],
         hidden_dims=config['hidden_dims'],
         latent=config['latent'],
+        variational=config['variational'],
         cnn=config['CNN']
     )
 
@@ -258,7 +267,7 @@ if __name__ == '__main__':
         raise NotImplementedError()
 
     if config['scheduler']:
-        scheduler = optim.lr_scheduler.LambdaLR(opt, lr_lambda=lambda epoch: 0.97**epoch)
+        scheduler = optim.lr_scheduler.LambdaLR(opt, lr_lambda=lambda epoch: 0.95**epoch)
 
     # GPU
     device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")

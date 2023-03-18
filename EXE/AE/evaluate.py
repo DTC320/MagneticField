@@ -6,10 +6,10 @@ from torchvision import datasets, transforms
 
 import torch
 import torchvision
-from ae import AE, AEEncoder, AEDecoder
+from ae import AE, AEEncoder, AEDecoder, CNN_Encoder, CNN_Decoder
 
 
-timestamp = '2303171645'
+timestamp = '2303180922'
 output_path = Path(__file__).parent.resolve() / '..'/ '..' / 'output' / 'AE'
 
 parser = ArgumentParser()
