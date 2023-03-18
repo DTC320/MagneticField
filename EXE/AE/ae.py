@@ -4,7 +4,6 @@ import yaml
 import shutil
 from yaml.loader import SafeLoader
 from datetime import datetime
-from argparse import ArgumentParser
 from pathlib import Path
 
 import torch
@@ -13,13 +12,6 @@ import torch.optim as optim
 import torchvision
 from torch.utils.data import DataLoader
 from torchvision import transforms, datasets
-
-parser = ArgumentParser()
-parser.add_argument(
-    '--config', type=str,
-    default='./EXE/AE/config.yaml',
-    help="training configuration"
-)
 
 
 class CNN_Encoder(nn.Module):
@@ -169,7 +161,7 @@ class AE(nn.Module):
         hidden_dims,
         latent,
         variational=False,
-        cnn=False
+        cnn=False,
     ):
         super(AE, self).__init__()
         self.img_channel, self.img_height, self.img_width  = img_shape
@@ -200,24 +192,29 @@ class AE(nn.Module):
             self.lin_mu = nn.Linear(latent, latent)
             self.lin_log_sig = nn.Linear(latent, latent)
 
-    def forward(self, x):
-        z = self.encoder(x)
+    def forward(self, x, z=None, eval=False):
+        q_z = None
 
-        if self.variational:
-            z_mu = self.lin_mu(z)
-            z_sig = torch.exp(self.lin_log_sig(z))
-            z = torch.distributions.Normal(z_mu, scale=z_sig).rsample()
-            z_log = torch.distributions.LogNormal(z_mu, scale=z_sig).rsample()
-        else:
-            z_log = None
+        if z is None:
+            z = self.encoder(x)
+
+            if self.variational:
+                z_mu = self.lin_mu(z)
+                z_sig = torch.exp(self.lin_log_sig(z))
+                q_z = torch.distributions.Normal(z_mu, scale=z_sig)
+                z = q_z.rsample()
+                # Sampled latent code for evaluation
+                if eval: q_z = z
 
         x = self.decoder(z)
         x = x.view(-1, self.img_channel, self.img_height, self.img_width)
-        return x, z_log
+        return x, q_z
 
 if __name__ == '__main__':
-    args = parser.parse_args()
-    config = yaml.load(open(args.config, 'r'), Loader=SafeLoader)
+    config = yaml.load(
+        open(Path(Path(__file__).parent.resolve(), 'config.yaml'), 'r'),
+        Loader=SafeLoader
+    )
     if config['wandb']: wandb.init(project="AE_MNIST", config=config)
 
     # prepare output folders
@@ -266,6 +263,8 @@ if __name__ == '__main__':
 
     if config['optimizer'] == 'adam':
         opt = optim.Adam(net.parameters(), lr=config['lr'])
+    elif config['optimizer'] == 'rmsprop':
+        opt = optim.RMSprop(net.parameters(), lr=config['lr'])
     elif config['optimizer'] == 'sgd':
         opt = optim.SGD(net.parameters(), lr=config['lr'])
     else:
@@ -288,19 +287,17 @@ if __name__ == '__main__':
         train_loss = []
         rec_loss = []
         kl_loss = []
-        for data in testloader:
+
+        for data in trainloader:
             images, _ = data
 
             # forward
-            _outputs, z_log = net(images)
+            _outputs, q_z = net(images)
 
             _rec_loss = loss_fn(_outputs, images)
             if config['variational']:
-                n = torch.distributions.LogNormal(
-                    loc=torch.zeros(size=z_log.size()),
-                    scale=torch.ones(size=z_log.size()),
-                    ).rsample()
-                _kl_loss = kl_loss_fn(z_log, n)
+                _kl_loss = torch.distributions.kl_divergence(q_z, 
+                    torch.distributions.Normal(0, 1.)).sum(-1).mean()
             else:
                 _kl_loss = torch.zeros(size=_rec_loss.size())
             _loss = _rec_loss + _kl_loss
@@ -327,14 +324,11 @@ if __name__ == '__main__':
 
                 _rec_loss = loss_fn(_outputs, images)
                 if config['variational']:
-                    n = torch.distributions.Normal(
-                        loc=torch.zeros(size=z.size()),
-                        scale=torch.ones(size=z.size()),
-                        ).rsample()
-                    _kl_loss = kl_loss_fn(z, n)
+                    _kl_loss = torch.distributions.kl_divergence(q_z,
+                        torch.distributions.Normal(0, 1.)).sum(-1).mean()
                 else:
                     _kl_loss = torch.zeros(size=_rec_loss.size())
-                _loss = _rec_loss + _kl_loss
+                _loss = _rec_loss + config['lambda_KL'] * _kl_loss
 
                 test_loss.append(_loss.item())
 
@@ -342,10 +336,19 @@ if __name__ == '__main__':
             wandb.log({
                 'train_loss': sum(train_loss) / len(train_loss),
                 'test_loss': sum(test_loss) / len(test_loss),
-                'rec_loss': sum(rec_loss) / len(rec_loss),
-                'kl_loss': sum(kl_loss) / len(kl_loss),
             })
-        print(f"Loss of {epoch+1:02d}/{config['epochs']} | Train: {sum(train_loss) / len(train_loss):.3f} | Test: {sum(test_loss) / len(test_loss):.3f}")
+            if config['variational']:
+                wandb.log({
+                    'rec_loss': sum(rec_loss) / len(rec_loss),
+                    'kl_loss': sum(kl_loss) / len(kl_loss),
+                })
+        console = f"Loss of {epoch+1:02d}/{config['epochs']}"
+        console += f" | Train: {sum(train_loss) / len(train_loss):.3f}"
+        console += f" | Test: {sum(test_loss) / len(test_loss):.3f}"
+        if config['variational']:
+            console += f" | Recon: {sum(rec_loss) / len(rec_loss):.3f}"
+            console += f" | KL: {sum(kl_loss) / len(kl_loss):.3f}"
+        print(console)
 
     #c. save
     timestamp = datetime.now().strftime("%y%m%d%H%M")
@@ -359,7 +362,7 @@ if __name__ == '__main__':
         idx = np.random.randint(0, len(testset))
         img, label = testset[idx]
         img = img[None, ...]
-        img0 = net(img)
+        img0, _ = net(img)
         img = torch.cat([img, img0], dim=0)
         torchvision.utils.save_image(img, Path(datapath, f'{timestamp}_{label}.png'))
 

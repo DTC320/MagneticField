@@ -1,5 +1,5 @@
-epochs: 100
-batch_size: 512
+epochs: 5
+batch_size: 16
 lr: 0.01
 optimizer: 'adam'
 loss: 'BCE'
@@ -8,5 +8,6 @@ latent: 2
 hidden_dims: [512]
 scheduler: True
 CNN: True
-variational: False
+variational: True
+lambda_KL: 1
 wandb: True
