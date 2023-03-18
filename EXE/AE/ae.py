@@ -23,23 +23,28 @@ parser.add_argument(
 
 
 class CNN_Encoder(nn.Module):
-    def __init__(self, in_channel, hidden_dims):
+    def __init__(self, in_channel, latent, hidden_dims):
         super(CNN_Encoder, self).__init__()
         layers = []
-        hidden_dims = [16, 32]
-
-        # self.conv1 = nn.Conv2d(in_channel, dim, kernel_size=5, stride=2)
         for dim in hidden_dims:
             layers.append(
                 nn.Sequential(
-                    nn.Conv2d(in_channel, dim, kernel_size=5, stride=2),
+                    nn.Conv2d(in_channel, dim, 3),
+                    nn.BatchNorm2d(dim),
+                    nn.PReLU(),
+                    nn.Conv2d(dim, dim, 3, stride=2),
                     nn.BatchNorm2d(dim),
                     nn.PReLU(),
                 )
             )
             in_channel = dim
-        layers.append(nn.MaxPool2d(4))
+
         self.encoder = nn.Sequential(*layers)
+        self.enc_lin = nn.Sequential(
+            nn.Linear(16*in_channel, latent),
+            nn.PReLU()
+        )
+        
 
     def forward(self, x):
         """
@@ -49,28 +54,39 @@ class CNN_Encoder(nn.Module):
         """
         b, c, h, w = x.shape
         x = self.encoder(x)
-        return x.view(b, -1)
+        x = self.enc_lin(x.view(b, -1))
+        return x
         
 
 class CNN_Decoder(nn.Module):
-    def __init__(self, in_channel, hidden_dims):
+    def __init__(self, out_channel, latent, hidden_dims):
         super(CNN_Decoder, self).__init__()
-        self.in_channel = in_channel
+        self.dec_lin = nn.Sequential(
+            nn.Linear(latent, 16*hidden_dims[-1]),
+            nn.PReLU()
+        )
+        in_channel = hidden_dims[-1]
         layers = []
-        hidden_dims = [32, 16]
-
-        for dim in hidden_dims:
+        for dim in reversed(hidden_dims):
             layers.append(
                 nn.Sequential(
-                    nn.ConvTranspose2d(in_channel, dim, 5, stride=2),
-                    nn.ReLU(),
+                    nn.ConvTranspose2d(in_channel, dim, 3, 2, 1),
+                    nn.BatchNorm2d(dim),
+                    nn.PReLU(),
                 )
             )
-            in_channel = dim
-        
+        in_channel = dim
+
         layers.append(
             nn.Sequential(
-                nn.ConvTranspose2d(in_channel, 1, 5, stride=2, padding=1, output_padding=1),
+                nn.ConvTranspose2d(
+                    in_channel,
+                    out_channel,
+                    5,
+                    stride=2,
+                    padding=1,
+                    output_padding=1
+                ),
                 nn.Sigmoid()
             )
         )
@@ -82,12 +98,13 @@ class CNN_Decoder(nn.Module):
         :param imgs: [N, in_features]
         :return: [N, out_features]
         """
-        x = x.view(-1, self.in_channel, 1, 1)
-        return self.decoder(x)
+        b, _ = x.shape
+        x = self.dec_lin(x)
+        return self.decoder(x.view(b, -1, 4, 4))
         
 
 class AEEncoder(nn.Module):
-    def __init__(self, in_channel, in_height, in_width, out_features, hidden_dims):
+    def __init__(self, in_channel, in_height, in_width, latent, hidden_dims):
         super(AEEncoder, self).__init__()
         self.in_features = in_channel * in_height * in_width
         in_features = in_channel * in_height * in_width
@@ -101,7 +118,13 @@ class AEEncoder(nn.Module):
                 )
             )
             in_features = dim
-        layers.append(nn.Linear(in_features, out_features))
+        layers.append(
+            nn.Sequential(
+                nn.Linear(in_features, latent),
+                nn.BatchNorm1d(dim),
+                nn.PReLU()
+            )
+        )
         self.encoder = nn.Sequential(*layers)
 
     def forward(self, imgs):
@@ -115,15 +138,15 @@ class AEEncoder(nn.Module):
     
 
 class AEDecoder(nn.Module):
-    def __init__(self, in_features, out_channel, out_height, out_width, hidden_dims):
+    def __init__(self, out_channel, out_height, out_width, latent, hidden_dims):
         super(AEDecoder, self).__init__()
-        self.in_features = in_features
+        self.latent = latent
         out_features = out_channel * out_height * out_width
         layers = []
         for dim in hidden_dims:
             layers.append(
                 nn.Sequential(
-                    nn.Linear(in_features, dim),
+                    nn.Linear(latent, dim),
                     nn.BatchNorm1d(dim),
                     nn.PReLU()
                 )
@@ -142,7 +165,7 @@ class AEDecoder(nn.Module):
         :param imgs: [N, in_features]
         :return: [N, out_features]
         """
-        imgs = imgs.view(-1, self.in_features)
+        imgs = imgs.view(-1, self.latent)
         return self.decoder(imgs)
 
 
@@ -154,8 +177,9 @@ class AE(nn.Module):
         self.img_width = img_width
 
         if cnn:
-            self.encoder = CNN_Encoder(self.img_channel, latent)
-            self.decoder = CNN_Decoder(latent, self.img_channel)
+            hidden_dims = [16, 32]
+            self.encoder = CNN_Encoder(self.img_channel, latent, hidden_dims)
+            self.decoder = CNN_Decoder(self.img_channel, latent, hidden_dims)
         else:
             self.encoder = AEEncoder(
                 self.img_channel,
@@ -166,10 +190,10 @@ class AE(nn.Module):
             )
 
             self.decoder = AEDecoder(
-                latent,
                 self.img_channel,
                 self.img_height,
                 self.img_width,
+                latent,
                 hidden_dims
             )
 

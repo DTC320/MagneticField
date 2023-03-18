@@ -1,11 +1,11 @@
-epochs: 1
+epochs: 100
 batch_size: 512
 lr: 0.01
 optimizer: 'adam'
 loss: 'BCE'
 num_workers: 12
-latent: 32
+latent: 4
 hidden_dims: [512]
 scheduler: True
 CNN: True
-wandb: False
+wandb: True
