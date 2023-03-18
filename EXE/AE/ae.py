@@ -206,12 +206,14 @@ class AE(nn.Module):
         if self.variational:
             z_mu = self.lin_mu(z)
             z_sig = torch.exp(self.lin_log_sig(z))
-            q_z = torch.distributions.Normal(z_mu, scale=z_sig)
-            z = q_z.rsample()
+            z = torch.distributions.Normal(z_mu, scale=z_sig).rsample()
+            z_log = torch.distributions.LogNormal(z_mu, scale=z_sig).rsample()
+        else:
+            z_log = None
 
         x = self.decoder(z)
         x = x.view(-1, self.img_channel, self.img_height, self.img_width)
-        return x
+        return x, z_log
 
 if __name__ == '__main__':
     args = parser.parse_args()
@@ -258,6 +260,9 @@ if __name__ == '__main__':
         loss_fn = nn.MSELoss()
     else:
         raise NotImplementedError()
+    
+    if config['variational']:
+        kl_loss_fn = nn.KLDivLoss(reduction="batchmean", log_target=True)
 
     if config['optimizer'] == 'adam':
         opt = optim.Adam(net.parameters(), lr=config['lr'])
@@ -281,17 +286,32 @@ if __name__ == '__main__':
         #a. train
         net.train(True)
         train_loss = []
+        rec_loss = []
+        kl_loss = []
         for data in testloader:
             images, _ = data
 
             # forward
-            _output = net(images)
-            _loss = loss_fn(_output, images)
+            _outputs, z_log = net(images)
+
+            _rec_loss = loss_fn(_outputs, images)
+            if config['variational']:
+                n = torch.distributions.LogNormal(
+                    loc=torch.zeros(size=z_log.size()),
+                    scale=torch.ones(size=z_log.size()),
+                    ).rsample()
+                _kl_loss = kl_loss_fn(z_log, n)
+            else:
+                _kl_loss = torch.zeros(size=_rec_loss.size())
+            _loss = _rec_loss + _kl_loss
+
             #backward
             opt.zero_grad()
             _loss.backward()
             opt.step()
             train_loss.append(_loss.item())
+            kl_loss.append(_kl_loss.item())
+            rec_loss.append(_rec_loss.item())
 
         if config['scheduler']: scheduler.step()
 
@@ -303,14 +323,27 @@ if __name__ == '__main__':
                 images, _ = data
 
                 # forward
-                _outputs = net(images)
-                _loss = loss_fn(_outputs, images)
+                _outputs, z = net(images)
+
+                _rec_loss = loss_fn(_outputs, images)
+                if config['variational']:
+                    n = torch.distributions.Normal(
+                        loc=torch.zeros(size=z.size()),
+                        scale=torch.ones(size=z.size()),
+                        ).rsample()
+                    _kl_loss = kl_loss_fn(z, n)
+                else:
+                    _kl_loss = torch.zeros(size=_rec_loss.size())
+                _loss = _rec_loss + _kl_loss
+
                 test_loss.append(_loss.item())
 
         if config['wandb']:
             wandb.log({
                 'train_loss': sum(train_loss) / len(train_loss),
-                'test_loss': sum(test_loss) / len(test_loss)
+                'test_loss': sum(test_loss) / len(test_loss),
+                'rec_loss': sum(rec_loss) / len(rec_loss),
+                'kl_loss': sum(kl_loss) / len(kl_loss),
             })
         print(f"Loss of {epoch+1:02d}/{config['epochs']} | Train: {sum(train_loss) / len(train_loss):.3f} | Test: {sum(test_loss) / len(test_loss):.3f}")
 

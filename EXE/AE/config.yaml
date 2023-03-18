@@ -4,8 +4,9 @@ lr: 0.01
 optimizer: 'adam'
 loss: 'BCE'
 num_workers: 12
-latent: 4
+latent: 2
 hidden_dims: [512]
 scheduler: True
 CNN: True
+variational: False
 wandb: True
