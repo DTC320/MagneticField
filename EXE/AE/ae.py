@@ -210,6 +210,7 @@ class AE(nn.Module):
         x = x.view(-1, self.img_channel, self.img_height, self.img_width)
         return x, q_z
 
+
 if __name__ == '__main__':
     config = yaml.load(
         open(Path(Path(__file__).parent.resolve(), 'config.yaml'), 'r'),
@@ -258,9 +259,6 @@ if __name__ == '__main__':
     else:
         raise NotImplementedError()
     
-    if config['variational']:
-        kl_loss_fn = nn.KLDivLoss(reduction="batchmean", log_target=True)
-
     if config['optimizer'] == 'adam':
         opt = optim.Adam(net.parameters(), lr=config['lr'])
     elif config['optimizer'] == 'rmsprop':
@@ -296,8 +294,8 @@ if __name__ == '__main__':
 
             _rec_loss = loss_fn(_outputs, images)
             if config['variational']:
-                _kl_loss = torch.distributions.kl_divergence(q_z, 
-                    torch.distributions.Normal(0, 1.)).sum(-1).mean()
+                p_z = torch.distributions.normal.Normal(torch.zeros_like(q_z.loc), torch.ones_like(q_z.scale))
+                _kl_loss = torch.distributions.kl_divergence(q_z, p_z).sum()
             else:
                 _kl_loss = torch.zeros(size=_rec_loss.size())
             _loss = _rec_loss + _kl_loss
@@ -320,15 +318,15 @@ if __name__ == '__main__':
                 images, _ = data
 
                 # forward
-                _outputs, z = net(images)
+                _outputs, q_z = net(images)
 
                 _rec_loss = loss_fn(_outputs, images)
                 if config['variational']:
-                    _kl_loss = torch.distributions.kl_divergence(q_z,
-                        torch.distributions.Normal(0, 1.)).sum(-1).mean()
+                    p_z = torch.distributions.normal.Normal(torch.zeros_like(q_z.loc), torch.ones_like(q_z.scale))
+                    _kl_loss = torch.distributions.kl_divergence(q_z, p_z).sum()
                 else:
                     _kl_loss = torch.zeros(size=_rec_loss.size())
-                _loss = _rec_loss + config['lambda_KL'] * _kl_loss
+                _loss = _rec_loss + _kl_loss
 
                 test_loss.append(_loss.item())
 
@@ -353,7 +351,8 @@ if __name__ == '__main__':
     #c. save
     timestamp = datetime.now().strftime("%y%m%d%H%M")
     torch.save(net, Path(datapath, f'{timestamp}_m.pkl'))
-    shutil.copy(args.config, Path(datapath, f'{timestamp}_cfg.yaml'))
+    shutil.copy(Path(Path(__file__).parent.resolve(), 'config.yaml'), 
+                Path(datapath, f'{timestamp}_cfg.yaml'))
 
 
     #d. random prediction
