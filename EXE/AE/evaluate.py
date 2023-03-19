@@ -56,12 +56,16 @@ def eval_ae(timestamp):
     if config['variational']:
         img = torch.zeros(size=[config['batch_size'], *testset[0][0].size()])
         label = torch.zeros(size=[config['batch_size']])
-        for i in range(config['batch_size']):
-            img[i], label[i] = testset[i]
-        _, z = net(img, eval=True)
-        z_np = z.detach().numpy()
+        z_np = np.zeros(shape=[20*config['batch_size'], 2])
+        label_np = np.zeros(shape=[20*config['batch_size']])
+        for j in range(20):
+            for i in range(config['batch_size']):
+                img[i], label[i] = testset[i]
+            _, z = net(img, eval=True)
+            z_np[j*config['batch_size']:(j+1)*config['batch_size']] = z.detach().numpy()
+            label_np[j*config['batch_size']:(j+1)*config['batch_size']] = label
         plt.figure(figsize=(10, 10))
-        plt.scatter(z_np[:100, 0], z_np[:100, 1], c=label[:100], cmap='brg')
+        plt.scatter(z_np[:200, 0], z_np[:200, 1], c=label_np[:200], cmap='brg')
         plt.colorbar()
         plt.show()
 

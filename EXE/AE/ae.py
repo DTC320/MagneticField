@@ -15,8 +15,9 @@ from torchvision import transforms, datasets
 
 
 class CNN_Encoder(nn.Module):
-    def __init__(self, in_channel, latent, hidden_dims):
+    def __init__(self, in_channel, latent, hidden_dims, variational=False):
         super(CNN_Encoder, self).__init__()
+        self.variational = variational
         layers = []
         for dim in hidden_dims:
             layers.append(
@@ -32,11 +33,12 @@ class CNN_Encoder(nn.Module):
             in_channel = dim
 
         self.encoder = nn.Sequential(*layers)
-        self.enc_lin = nn.Sequential(
-            nn.Linear(16*in_channel, latent),
-            nn.PReLU()
-        )
-        
+
+        if self.variational:
+            self.lin_mu = nn.Linear(16*in_channel, latent)
+            self.lin_log_sig = nn.Linear(16*in_channel, latent)
+        else:
+            self.lin_latent = nn.Linear(16*in_channel, latent)
 
     def forward(self, x):
         """
@@ -46,8 +48,16 @@ class CNN_Encoder(nn.Module):
         """
         b, c, h, w = x.shape
         x = self.encoder(x)
-        x = self.enc_lin(x.view(b, -1))
-        return x
+        x = x.view(b, -1)
+
+        if self.variational:
+            z_mu = self.lin_mu(x)
+            z_sig = torch.exp(self.lin_log_sig(x))
+            z = (z_mu, z_sig)
+        else:
+            z = self.lin_latent(x)
+
+        return z
         
 
 class CNN_Decoder(nn.Module):
@@ -90,11 +100,13 @@ class CNN_Decoder(nn.Module):
         
 
 class AEEncoder(nn.Module):
-    def __init__(self, img_shape, latent, hidden_dims):
+    def __init__(self, img_shape, latent, hidden_dims, variational=False):
         super(AEEncoder, self).__init__()
         in_channel, in_height, in_width = img_shape
         self.in_features = in_channel * in_height * in_width
-        in_features = in_channel * in_height * in_width
+        self.variational = variational
+
+        in_features = self.in_features
         layers = []
         for dim in hidden_dims:
             layers.append(
@@ -105,23 +117,32 @@ class AEEncoder(nn.Module):
                 )
             )
             in_features = dim
-        layers.append(
-            nn.Sequential(
-                nn.Linear(in_features, latent),
-                nn.BatchNorm1d(latent),
-                nn.PReLU()
-            )
-        )
+
         self.encoder = nn.Sequential(*layers)
 
-    def forward(self, imgs):
+        if self.variational:
+            self.lin_mu = nn.Linear(in_features, latent)
+            self.lin_log_sig = nn.Linear(in_features, latent)
+        else:
+            self.lin_latent = nn.Linear(in_features, latent)
+
+    def forward(self, x):
         """
         编码器
         :param imgs: [N, in_features]
         :return: [N, out_features]
         """
-        imgs = imgs.view(-1, self.in_features)
-        return self.encoder(imgs)
+        x = x.view(-1, self.in_features)
+        x = self.encoder(x)
+
+        if self.variational:
+            z_mu = self.lin_mu(x)
+            z_sig = torch.exp(self.lin_log_sig(x))
+            z = (z_mu, z_sig)
+        else:
+            z = self.lin_latent(x)
+
+        return z
     
 
 class AEDecoder(nn.Module):
@@ -169,18 +190,28 @@ class AE(nn.Module):
         cnn=False,
     ):
         super(AE, self).__init__()
-        self.img_channel, self.img_height, self.img_width  = img_shape
+        self.img_channel, self.img_height, self.img_width = img_shape
         self.variational = variational
 
         if cnn:
             hidden_dims = [16, 64]
-            self.encoder = CNN_Encoder(self.img_channel, latent, hidden_dims)
-            self.decoder = CNN_Decoder(self.img_channel, latent, hidden_dims)
+            self.encoder = CNN_Encoder(
+                self.img_channel,
+                latent,
+                hidden_dims,
+                variational
+            )
+            self.decoder = CNN_Decoder(
+                self.img_channel,
+                latent,
+                hidden_dims
+            )
         else:
             self.encoder = AEEncoder(
                 img_shape,
                 latent,
-                hidden_dims
+                hidden_dims,
+                variational
             )
 
             self.decoder = AEDecoder(
@@ -189,10 +220,6 @@ class AE(nn.Module):
                 hidden_dims
             )
 
-        if variational:
-            self.lin_mu = nn.Linear(latent, latent)
-            self.lin_log_sig = nn.Linear(latent, latent)
-
     def forward(self, x, z=None, eval=False):
         q_z = None
 
@@ -200,10 +227,9 @@ class AE(nn.Module):
             z = self.encoder(x)
 
             if self.variational:
-                z_mu = self.lin_mu(z)
-                z_sig = torch.exp(self.lin_log_sig(z))
-                q_z = torch.distributions.Normal(z_mu, scale=z_sig)
+                q_z = torch.distributions.Normal(z[0], scale=z[1])
                 z = q_z.rsample()
+
                 # Sampled latent code for evaluation
                 if eval: q_z = z
 
@@ -222,6 +248,10 @@ if __name__ == '__main__':
     # prepare output folders
     datapath = Path(__file__).parent.absolute() / '..' / '..' / 'output' / 'AE'
     if not datapath.exists(): datapath.mkdir(parents=True)
+
+    timestamp = datetime.now().strftime("%y%m%d%H%M")
+    shutil.copy(Path(Path(__file__).parent.resolve(), 'config.yaml'), 
+                Path(datapath, f'{timestamp}_cfg.yaml'))
 
     # load dataset
     transform = transforms.Compose([
@@ -272,8 +302,6 @@ if __name__ == '__main__':
     loss_fn.to(device)
     
     #3.train
-    total_train_samples = len(trainset)
-    test_step = 0
     for epoch in range(config['epochs']):
         #a. train
         net.train(True)
@@ -344,11 +372,7 @@ if __name__ == '__main__':
         print(console)
 
     #c. save
-    timestamp = datetime.now().strftime("%y%m%d%H%M")
     torch.save(net, Path(datapath, f'{timestamp}_m.pkl'))
-    shutil.copy(Path(Path(__file__).parent.resolve(), 'config.yaml'), 
-                Path(datapath, f'{timestamp}_cfg.yaml'))
-
 
     #d. random prediction
     net.eval()
