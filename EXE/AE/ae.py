@@ -90,8 +90,9 @@ class CNN_Decoder(nn.Module):
         
 
 class AEEncoder(nn.Module):
-    def __init__(self, in_channel, in_height, in_width, latent, hidden_dims):
+    def __init__(self, img_shape, latent, hidden_dims):
         super(AEEncoder, self).__init__()
+        in_channel, in_height, in_width = img_shape
         self.in_features = in_channel * in_height * in_width
         in_features = in_channel * in_height * in_width
         layers = []
@@ -107,7 +108,7 @@ class AEEncoder(nn.Module):
         layers.append(
             nn.Sequential(
                 nn.Linear(in_features, latent),
-                nn.BatchNorm1d(dim),
+                nn.BatchNorm1d(latent),
                 nn.PReLU()
             )
         )
@@ -124,19 +125,23 @@ class AEEncoder(nn.Module):
     
 
 class AEDecoder(nn.Module):
-    def __init__(self, out_channel, out_height, out_width, latent, hidden_dims):
+    def __init__(self, img_shape, latent, hidden_dims):
         super(AEDecoder, self).__init__()
         self.latent = latent
+        out_channel, out_height, out_width = img_shape
         out_features = out_channel * out_height * out_width
+        in_channel = latent
         layers = []
         for dim in hidden_dims:
             layers.append(
                 nn.Sequential(
-                    nn.Linear(latent, dim),
+                    nn.Linear(in_channel, dim),
                     nn.BatchNorm1d(dim),
                     nn.PReLU()
                 )
             )
+            in_channel = dim
+
         layers.append(
             nn.Sequential(
                 nn.Linear(dim, out_features),
@@ -173,17 +178,13 @@ class AE(nn.Module):
             self.decoder = CNN_Decoder(self.img_channel, latent, hidden_dims)
         else:
             self.encoder = AEEncoder(
-                self.img_channel,
-                self.img_height,
-                self.img_width,
+                img_shape,
                 latent,
                 hidden_dims
             )
 
             self.decoder = AEDecoder(
-                self.img_channel,
-                self.img_height,
-                self.img_width,
+                img_shape,
                 latent,
                 hidden_dims
             )
@@ -228,20 +229,14 @@ if __name__ == '__main__':
         transforms.RandomResizedCrop(size=(28, 28), scale=(0.85, 1.0))
     ])
 
-    trainset = datasets.MNIST(root="./data/", transform=transform, train=True, download=True)
-    testset = datasets.MNIST(root="./data/", transform=transform, train=False, download=True)
-
-    trainloader = DataLoader(trainset,
-                             batch_size=config['batch_size'],
-                             shuffle=True,
-                             num_workers=config['num_workers'],
-                             prefetch_factor=config['batch_size']*2
-                            )
-    testloader = DataLoader(testset,
-                            batch_size=config['batch_size'],
-                            shuffle=False,
-                            num_workers=config['num_workers'],
-                           )
+    trainset = datasets.MNIST(root=Path(__file__).parent.resolve() / '..'/ '..' / 'data',
+                              transform=transform, train=True, download=config['download_data'])
+    testset = datasets.MNIST(root=Path(__file__).parent.resolve() / '..'/ '..' / 'data',
+                             transform=transform, train=False, download=config['download_data'])
+    trainloader = DataLoader(trainset, batch_size=config['batch_size'], shuffle=True,
+                             num_workers=config['num_workers'], prefetch_factor=config['batch_size']*2)
+    testloader = DataLoader(testset, batch_size=config['batch_size'],
+                            shuffle=False, num_workers=config['num_workers'],)
 
     #2 Net
     net = AE(
@@ -295,7 +290,7 @@ if __name__ == '__main__':
             _rec_loss = loss_fn(_outputs, images)
             if config['variational']:
                 p_z = torch.distributions.normal.Normal(torch.zeros_like(q_z.loc), torch.ones_like(q_z.scale))
-                _kl_loss = torch.distributions.kl_divergence(q_z, p_z).sum()
+                _kl_loss = torch.distributions.kl_divergence(q_z, p_z).sum(-1).mean()
             else:
                 _kl_loss = torch.zeros(size=_rec_loss.size())
             _loss = _rec_loss + _kl_loss
@@ -323,7 +318,7 @@ if __name__ == '__main__':
                 _rec_loss = loss_fn(_outputs, images)
                 if config['variational']:
                     p_z = torch.distributions.normal.Normal(torch.zeros_like(q_z.loc), torch.ones_like(q_z.scale))
-                    _kl_loss = torch.distributions.kl_divergence(q_z, p_z).sum()
+                    _kl_loss = torch.distributions.kl_divergence(q_z, p_z).sum(-1).mean()
                 else:
                     _kl_loss = torch.zeros(size=_rec_loss.size())
                 _loss = _rec_loss + _kl_loss

@@ -13,7 +13,6 @@ from torchvision import datasets, transforms
 from ae import AE, AEEncoder, AEDecoder, CNN_Encoder, CNN_Decoder
 
 def eval_ae(timestamp):
-    data_path = Path(__file__).parent.resolve() / '..'/ '..' / 'data'
     output_path = Path(__file__).parent.resolve() / '..'/ '..' / 'output' / 'AE'
     config = yaml.load(open(Path(output_path, f'{timestamp}_cfg.yaml'), 'r'), Loader=SafeLoader)
 
@@ -35,7 +34,8 @@ def eval_ae(timestamp):
             transforms.RandomResizedCrop(size=(28, 28), scale=(0.85, 1.0))])
 
     # Load the MNIST test dataset
-    testset = datasets.MNIST(root=data_path, train=False, download=False, transform=transform)
+    testset = datasets.MNIST(root=Path(__file__).parent.resolve() / '..'/ '..' / 'data',
+                             train=False, download=False, transform=transform)
     loss_fn = torch.nn.MSELoss()
 
     # Extract a random sample from the test dataset
@@ -78,7 +78,7 @@ def eval_ae(timestamp):
         for i, yi in enumerate(grid_x):
             for j, xi in enumerate(grid_y):
                 z_sample = torch.tensor([[xi, yi]], dtype=torch.float32)
-                z_sample = torch.tile(z_sample, (config['batch_size'], 1))
+                z_sample = torch.tile(z_sample, (config['batch_size'], config['latent'] // 2))
                 img_decoded, _ = net(img, z=z_sample)
                 digit = img_decoded[0].detach().numpy().reshape(digit_size, digit_size)
                 figure[i * digit_size: (i + 1) * digit_size,
