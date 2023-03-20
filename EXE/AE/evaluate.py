@@ -9,7 +9,7 @@ from scipy.stats import norm
 import torch
 from torchvision import datasets, transforms
 
-from ae import AE, AEEncoder, AEDecoder, CNN_Encoder, CNN_Decoder
+from networks import AE, AEEncoder, AEDecoder, CNN_Encoder, CNN_Decoder
 
 def eval_ae(timestamp):
     output_path = Path(__file__).parent.resolve() / '..'/ '..' / 'output' / 'AE'
