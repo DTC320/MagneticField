@@ -7,7 +7,6 @@ from pathlib import Path
 from scipy.stats import norm
 
 import torch
-import torchvision
 from torchvision import datasets, transforms
 
 from ae import AE, AEEncoder, AEDecoder, CNN_Encoder, CNN_Decoder
@@ -25,17 +24,8 @@ def eval_ae(timestamp):
     )
     net = torch.load(Path(output_path, f'{timestamp}_m.pkl'))
 
-
-    # Define the transform to normalize the data
-    # transform = transforms.Compose([transforms.ToTensor(),
-    #                                 transforms.Normalize((0.5,), (0.5,))])
-
-    transform = transforms.Compose([transforms.ToTensor(),
-            transforms.RandomResizedCrop(size=(28, 28), scale=(0.85, 1.0))])
-
-    # Load the MNIST test dataset
     testset = datasets.MNIST(root=Path(__file__).parent.resolve() / '..'/ '..' / 'data',
-                             train=False, download=False, transform=transform)
+                             train=False, download=False, transform=transforms.ToTensor())
     loss_fn = torch.nn.MSELoss()
 
     # Extract a random sample from the test dataset
@@ -48,8 +38,9 @@ def eval_ae(timestamp):
         loss = loss_fn(output, img)
         eval_loss.append(loss.item())
 
-        img = torch.cat([img, output], dim=0)
-        torchvision.utils.save_image(img, Path(output_path, f'test_{i}_{label}.png'))
+        img = torch.cat([img, output], dim=3).detach().numpy()
+        plt.imshow(img[0,0])
+        plt.show()
 
     print(f'Reconstruction error: {sum(eval_loss) / len(eval_loss):.3f}')
 
@@ -62,7 +53,7 @@ def eval_ae(timestamp):
             for i in range(config['batch_size']):
                 img[i], label[i] = testset[i]
             _, z = net(img, eval=True)
-            z_np[j*config['batch_size']:(j+1)*config['batch_size']] = z.detach().numpy()
+            z_np[j*config['batch_size']:(j+1)*config['batch_size']] = z[:,:2].detach().numpy()
             label_np[j*config['batch_size']:(j+1)*config['batch_size']] = label
         plt.figure(figsize=(10, 10))
         plt.scatter(z_np[:200, 0], z_np[:200, 1], c=label_np[:200], cmap='brg')

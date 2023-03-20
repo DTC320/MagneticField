@@ -9,6 +9,7 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.distributions as td
 import torchvision
 from torch.utils.data import DataLoader
 from torchvision import transforms, datasets
@@ -23,11 +24,11 @@ class CNN_Encoder(nn.Module):
             layers.append(
                 nn.Sequential(
                     nn.Conv2d(in_channel, dim, 3),
-                    nn.BatchNorm2d(dim),
-                    nn.PReLU(),
+                    # nn.BatchNorm2d(dim),
+                    nn.ReLU(),
                     nn.Conv2d(dim, dim, 3, stride=2),
-                    nn.BatchNorm2d(dim),
-                    nn.PReLU(),
+                    # nn.BatchNorm2d(dim),
+                    nn.ReLU(),
                 )
             )
             in_channel = dim
@@ -36,7 +37,7 @@ class CNN_Encoder(nn.Module):
 
         if self.variational:
             self.lin_mu = nn.Linear(16*in_channel, latent)
-            self.lin_log_sig = nn.Linear(16*in_channel, latent)
+            self.lin_logvar = nn.Linear(16*in_channel, latent)
         else:
             self.lin_latent = nn.Linear(16*in_channel, latent)
 
@@ -52,7 +53,7 @@ class CNN_Encoder(nn.Module):
 
         if self.variational:
             z_mu = self.lin_mu(x)
-            z_sig = torch.exp(self.lin_log_sig(x))
+            z_sig = self.lin_logvar(x)
             z = (z_mu, z_sig)
         else:
             z = self.lin_latent(x)
@@ -65,17 +66,17 @@ class CNN_Decoder(nn.Module):
         super(CNN_Decoder, self).__init__()
         self.dec_lin = nn.Sequential(
             nn.Linear(latent, 16*hidden_dims[-1]),
-            nn.PReLU()
+            nn.ReLU()
         )
         layers = []
         layers.append(
             nn.Sequential(
                 nn.ConvTranspose2d(hidden_dims[-1], hidden_dims[-1], 5, 2),
-                nn.BatchNorm2d(hidden_dims[-1]),
-                nn.PReLU(),
+                # nn.BatchNorm2d(hidden_dims[-1]),
+                nn.ReLU(),
                 nn.ConvTranspose2d(hidden_dims[-1], hidden_dims[-2], 5, 2, output_padding=1),
-                nn.BatchNorm2d(hidden_dims[-2]),
-                nn.PReLU(),
+                # nn.BatchNorm2d(hidden_dims[-2]),
+                nn.ReLU(),
             )
         )
 
@@ -112,17 +113,17 @@ class AEEncoder(nn.Module):
             layers.append(
                 nn.Sequential(
                     nn.Linear(in_features, dim),
-                    nn.BatchNorm1d(dim),
-                    nn.PReLU()
+                    # nn.BatchNorm1d(dim),
+                    nn.ReLU()
                 )
             )
             in_features = dim
 
-        self.encoder = nn.Sequential(*layers)
+        self.encode = nn.Sequential(*layers)
 
         if self.variational:
             self.lin_mu = nn.Linear(in_features, latent)
-            self.lin_log_sig = nn.Linear(in_features, latent)
+            self.lin_logvar = nn.Linear(in_features, latent)
         else:
             self.lin_latent = nn.Linear(in_features, latent)
 
@@ -133,11 +134,11 @@ class AEEncoder(nn.Module):
         :return: [N, out_features]
         """
         x = x.view(-1, self.in_features)
-        x = self.encoder(x)
+        x = self.encode(x)
 
         if self.variational:
             z_mu = self.lin_mu(x)
-            z_sig = torch.exp(self.lin_log_sig(x))
+            z_sig = self.lin_logvar(x)
             z = (z_mu, z_sig)
         else:
             z = self.lin_latent(x)
@@ -152,13 +153,14 @@ class AEDecoder(nn.Module):
         out_channel, out_height, out_width = img_shape
         out_features = out_channel * out_height * out_width
         in_channel = latent
+
         layers = []
         for dim in hidden_dims:
             layers.append(
                 nn.Sequential(
                     nn.Linear(in_channel, dim),
-                    nn.BatchNorm1d(dim),
-                    nn.PReLU()
+                    # nn.BatchNorm1d(dim),
+                    nn.ReLU()
                 )
             )
             in_channel = dim
@@ -220,6 +222,11 @@ class AE(nn.Module):
                 hidden_dims
             )
 
+    def reparameterize(self, mu, logvar):
+        std = torch.exp(0.5*logvar)
+        eps = torch.randn_like(std)
+        return eps.mul(std).add_(mu)
+
     def forward(self, x, z=None, eval=False):
         q_z = None
 
@@ -227,8 +234,12 @@ class AE(nn.Module):
             z = self.encoder(x)
 
             if self.variational:
-                q_z = torch.distributions.Normal(z[0], scale=z[1])
-                z = q_z.rsample()
+                mu, logvar = z
+                # z = self.reparameterize(mu, logvar)
+                # q_z = mu, logvar
+                std = logvar.exp().pow(0.5)
+                q_z = td.normal.Normal(mu, std)
+                z = q_z.rsample()   
 
                 # Sampled latent code for evaluation
                 if eval: q_z = z
@@ -236,6 +247,25 @@ class AE(nn.Module):
         x = self.decoder(z)
         x = x.view(-1, self.img_channel, self.img_height, self.img_width)
         return x, q_z
+    
+
+def loss_function(recon_x, x, q_z, variational):
+    BCE = torch.nn.functional.binary_cross_entropy(recon_x.view(-1, 784), x.view(-1, 784), reduction='sum')
+
+    # see Appendix B from VAE paper:
+    # Kingma and Welling. Auto-Encoding Variational Bayes. ICLR, 2014
+    # https://arxiv.org/abs/1312.6114
+    # 0.5 * sum(1 + log(sigma^2) - mu^2 - sigma^2)
+
+    # mu, logvar = q_z
+    # KLD = -0.5 * torch.sum(1 + logvar - mu.pow(2) - logvar.exp())
+    if variational:
+        p_z = td.normal.Normal(torch.zeros_like(q_z.loc), torch.ones_like(q_z.scale))
+        KLD = td.kl_divergence(q_z, p_z).sum()
+    else:
+        KLD = torch.zeros(size=BCE.size())
+
+    return BCE, KLD
 
 
 if __name__ == '__main__':
@@ -253,16 +283,10 @@ if __name__ == '__main__':
     shutil.copy(Path(Path(__file__).parent.resolve(), 'config.yaml'), 
                 Path(datapath, f'{timestamp}_cfg.yaml'))
 
-    # load dataset
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.RandomResizedCrop(size=(28, 28), scale=(0.85, 1.0))
-    ])
-
     trainset = datasets.MNIST(root=Path(__file__).parent.resolve() / '..'/ '..' / 'data',
-                              transform=transform, train=True, download=config['download_data'])
+                              transform=transforms.ToTensor(), train=True, download=config['download_data'])
     testset = datasets.MNIST(root=Path(__file__).parent.resolve() / '..'/ '..' / 'data',
-                             transform=transform, train=False, download=config['download_data'])
+                             transform=transforms.ToTensor(), train=False, download=config['download_data'])
     trainloader = DataLoader(trainset, batch_size=config['batch_size'], shuffle=True,
                              num_workers=config['num_workers'], prefetch_factor=config['batch_size']*2)
     testloader = DataLoader(testset, batch_size=config['batch_size'],
@@ -277,12 +301,12 @@ if __name__ == '__main__':
         cnn=config['CNN']
     )
 
-    if config['loss'] == 'BCE':
-        loss_fn = nn.BCELoss()
-    elif config['loss'] == 'MSE':
-        loss_fn = nn.MSELoss()
-    else:
-        raise NotImplementedError()
+    # if config['loss'] == 'BCE':
+    #     loss_fn = nn.BCELoss()
+    # elif config['loss'] == 'MSE':
+    #     loss_fn = nn.MSELoss()
+    # else:
+    #     raise NotImplementedError()
     
     if config['optimizer'] == 'adam':
         opt = optim.Adam(net.parameters(), lr=config['lr'])
@@ -299,7 +323,7 @@ if __name__ == '__main__':
     # GPU
     device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
     net.to(device)
-    loss_fn.to(device)
+    # loss_fn.to(device)
     
     #3.train
     for epoch in range(config['epochs']):
@@ -314,13 +338,7 @@ if __name__ == '__main__':
 
             # forward
             _outputs, q_z = net(images)
-
-            _rec_loss = loss_fn(_outputs, images)
-            if config['variational']:
-                p_z = torch.distributions.normal.Normal(torch.zeros_like(q_z.loc), torch.ones_like(q_z.scale))
-                _kl_loss = torch.distributions.kl_divergence(q_z, p_z).sum(-1).mean()
-            else:
-                _kl_loss = torch.zeros(size=_rec_loss.size())
+            _rec_loss, _kl_loss = loss_function(_outputs, images, q_z, config['variational'])
             _loss = _rec_loss + _kl_loss
 
             #backward
@@ -342,33 +360,27 @@ if __name__ == '__main__':
 
                 # forward
                 _outputs, q_z = net(images)
-
-                _rec_loss = loss_fn(_outputs, images)
-                if config['variational']:
-                    p_z = torch.distributions.normal.Normal(torch.zeros_like(q_z.loc), torch.ones_like(q_z.scale))
-                    _kl_loss = torch.distributions.kl_divergence(q_z, p_z).sum(-1).mean()
-                else:
-                    _kl_loss = torch.zeros(size=_rec_loss.size())
+                _rec_loss, _kl_loss = loss_function(_outputs, images, q_z, config['variational'])
                 _loss = _rec_loss + _kl_loss
-
                 test_loss.append(_loss.item())
 
         if config['wandb']:
             wandb.log({
-                'train_loss': sum(train_loss) / len(train_loss),
-                'test_loss': sum(test_loss) / len(test_loss),
+                'train_loss': sum(train_loss) / len(trainloader.dataset),
+                'test_loss': sum(test_loss) / len(testloader.dataset),
             })
             if config['variational']:
                 wandb.log({
-                    'rec_loss': sum(rec_loss) / len(rec_loss),
-                    'kl_loss': sum(kl_loss) / len(kl_loss),
+                    'rec_loss': sum(rec_loss) / len(trainloader.dataset),
+                    'kl_loss': sum(kl_loss) / len(trainloader.dataset),
                 })
+
         console = f"Loss of {epoch+1:02d}/{config['epochs']}"
-        console += f" | Train: {sum(train_loss) / len(train_loss):.3f}"
-        console += f" | Test: {sum(test_loss) / len(test_loss):.3f}"
+        console += f" | Train: {sum(train_loss) / len(trainloader.dataset):.3f}"
+        console += f" | Test: {sum(test_loss) / len(testloader.dataset):.3f}"
         if config['variational']:
-            console += f" | Recon: {sum(rec_loss) / len(rec_loss):.3f}"
-            console += f" | KL: {sum(kl_loss) / len(kl_loss):.3f}"
+            console += f" | Recon: {sum(rec_loss) / len(trainloader.dataset):.3f}"
+            console += f" | KL: {sum(kl_loss) / len(trainloader.dataset):.3f}"
         print(console)
 
     #c. save
