@@ -54,9 +54,9 @@ if __name__ == '__main__':
     shutil.copy(Path(Path(__file__).parent.resolve(), 'config.yaml'), 
                 Path(datapath, f'{timestamp}_cfg.yaml'))
 
-    trainset = datasets.MNIST(root=Path(__file__).parent.resolve() / '..'/ '..' / 'data',
+    trainset = datasets.MNIST(path=Path(__file__).parent.resolve() / '..'/ '..' / 'data',
                               transform=transforms.ToTensor(), train=True, download=config['download_data'])
-    testset = datasets.MNIST(root=Path(__file__).parent.resolve() / '..'/ '..' / 'data',
+    testset = datasets.MNIST(path=Path(__file__).parent.resolve() / '..'/ '..' / 'data',
                              transform=transforms.ToTensor(), train=False, download=config['download_data'])
     trainloader = DataLoader(trainset, batch_size=config['batch_size'], shuffle=True,
                              num_workers=config['num_workers'], prefetch_factor=config['batch_size']*2)

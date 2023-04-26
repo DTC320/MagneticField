@@ -1,0 +1,15 @@
+epochs: 10
+batch_size: 64
+lr: 0.001
+optimizer: 'adam'
+loss: 'BCE'
+num_workers: 12
+latent: 2
+hidden_dims:
+  fully: [400]
+  cnn: [64, 256]
+scheduler: True
+CNN: True
+variational: False
+wandb: True
+download_data: False
