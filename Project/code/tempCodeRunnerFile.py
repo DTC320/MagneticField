@@ -33,7 +33,7 @@ loss_fn.to(device)
 
 #data
 
-file_name = 'data4D.npy'
+file_name = '../newcode/data4D.npy'
 folder_path = 'E:\GitProject\magnet\MagneticFields\Project\code'
 
 # 使用 os.path.join 函数构建跨平台的文件路径

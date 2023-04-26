@@ -95,7 +95,7 @@ if __name__ == '__main__':
 
     # Load data
 
-    file_name = 'data4D.npy'
+    file_name = '../newcode/data4D.npy'
     folder_path = 'MagneticFields/Project/code'
 
     # 使用 os.path.join 函数构建跨平台的文件路径
