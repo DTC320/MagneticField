@@ -53,7 +53,7 @@ if __name__ == "__main__":
     optimizer = torch.optim.Adam(model.parameters(), lr=0.002)
 
     # 加载数据并划分为训练集、验证集和测试集
-    data = np.load("data4D.npy")
+    data = np.load("../data4D.npy")
     train_data, test_data = train_test_split(data, test_size=0.2, random_state=42)
     train_data, val_data = train_test_split(train_data, test_size=0.2, random_state=42)
 
@@ -138,3 +138,4 @@ if __name__ == "__main__":
         print(f'Epoch [{epoch + 1}/{num_epochs}], Validation Loss: {val_loss / len(val_loader)}')
 
     wandb.finish()
+    torch.save(model)

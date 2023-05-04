@@ -1,9 +1,0 @@
-epochs: 10
-batch_size: 64
-lr: 0.001
-optimizer: 'adam'
-loss: 'BCE'
-num_workers: 12
-latent: 2
-scheduler: True
-wandb: False
