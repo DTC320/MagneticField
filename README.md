@@ -22,10 +22,12 @@ The EXE folder is only for practicing.
 ## 3. Project itself
 1. creat 2D dataset(5000, [32,32,1])
 2. try to train it using AE
-3. try to train it using VAE (now)
-4. creat 3D dataset(5000, [32,32,32])
-5. try to train it using AE
-6. try to train it using VAE
+3. try to train it using VAE 
+4. try to train it using Diffusion models(Now)
+5. creat 3D dataset(5000, [32,32,32])
+6. try to train it using AE
+7. try to train it using VAE
+8. try to train it using Diffusion
 
-7. Report
+9. Report
 
