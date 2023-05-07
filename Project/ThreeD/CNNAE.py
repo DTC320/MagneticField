@@ -8,34 +8,42 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
 from sklearn.model_selection import train_test_split
 
+
 class CNNAE(nn.Module):
     def __init__(self):
         super(CNNAE, self).__init__()
 
         # 编码器
         self.encoder = nn.Sequential(
-            nn.Conv3d(3, 16, 3, stride=2, padding=1),
+            nn.Conv3d(3, 256, 3, stride=2, padding=1),
+            nn.BatchNorm3d(256),
             nn.PReLU(),
-            nn.Conv3d(16, 32, 3, stride=2, padding=1),
+            nn.Conv3d(256, 256, 3, stride=2, padding=1),
+            nn.BatchNorm3d(256),
             nn.PReLU(),
-            nn.Conv3d(32, 64, 7),
+            nn.Conv3d(256, 256, 7),
+            nn.BatchNorm3d(256),
         )
 
         # 解码器
         self.decoder = nn.Sequential(
-            nn.ConvTranspose3d(64, 32, 7),
+            nn.ConvTranspose3d(256, 256, 7),
+            nn.BatchNorm3d(256),
             nn.PReLU(),
             nn.Dropout(p=0.2),
-            nn.ConvTranspose3d(32, 16, 3, stride=2, padding=1, output_padding=1),
+            nn.ConvTranspose3d(256, 256, 3, stride=2, padding=1, output_padding=1),
+            nn.BatchNorm3d(256),
             nn.PReLU(),
-            nn.ConvTranspose3d(16, 3, 3, stride=2, padding=1, output_padding=1),
-            nn.Sigmoid()
+            nn.ConvTranspose3d(256, 3, 3, stride=2, padding=1, output_padding=1),
+            nn.BatchNorm3d(3),
+            #nn.Sigmoid()
         )
 
     def forward(self, x):
         x = self.encoder(x)
         x = self.decoder(x)
         return x
+
 
 if __name__ == "__main__":
     # %%
@@ -55,9 +63,12 @@ if __name__ == "__main__":
 
     # 训练数据加载器
 
-    train_data = np.load("Megnat_3D.npy", allow_pickle=True)
+    data = np.load("Megnat_3D.npy", allow_pickle=True)
+    train_data, test_data = train_test_split(data, test_size=0.2, random_state=42)
     train_data = torch.from_numpy(train_data).to(device)
+    test_data = torch.from_numpy(test_data).to(device)
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=True)
 
     wandb.init(
         # set the wandb project where this run will be logged
@@ -84,5 +95,14 @@ if __name__ == "__main__":
         wandb.log({"Epochs": epoch + 1, "loss": loss.item()})
 
         print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {loss.item():.4f}")
-    torch.save(autoencoder,"AE.pkl")
+    #torch.save(autoencoder,"AE.pkl")
+    with torch.no_grad():
+        test_loss = 0
+        for data in test_loader:
+            data = data.to(device)
+            recon_batch = autoencoder(data)
+            test_loss += criterion(recon_batch, data).item()
+        test_loss /= len(test_loader.dataset)
+        wandb.log({"test_loss": test_loss})
+        print(f"Test Loss: {test_loss:.4f}")
     wandb.finish()
