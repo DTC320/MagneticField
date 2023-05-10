@@ -94,12 +94,12 @@ if __name__ == "__main__":
 
 
     img_channels = 3
-    latent_dim = 128
+    latent_dim = 256
     learning_rate = 0.0002
     model = VAE(img_channels, latent_dim).to(device)
 
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    num_epochs = 150
+    num_epochs = 400
     wandb.init(project="MagVAE_2D",
                config={
                    "Learning_rate": learning_rate,
