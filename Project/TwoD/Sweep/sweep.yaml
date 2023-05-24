@@ -1,0 +1,23 @@
+program: Sweep2d.py
+name: MagAE_2D_Phys
+project: MagAE_2D_hp-tuning
+entity: te-st
+
+method: random
+
+metric:
+  name: loss
+  goal: minimize
+
+parameters:
+  lr: 
+    values: [0.001, 0.0005, 0.0001]
+  
+  batch_size:
+    values: [32, 64, 128]
+    
+  alpha:
+    values: [0.01, 0.1, 1.0]
+
+  cnum:
+    values: [8, 16, 32]
