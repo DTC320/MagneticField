@@ -5,8 +5,8 @@ import wandb
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import DataLoader
-from sklearn.model_selection import train_test_split
+from torch.utils.data import DataLoader, random_split
+
 
 # 定义模型类 CNNAE
 class CNNAE(nn.Module):
@@ -48,6 +48,7 @@ class CNNAE(nn.Module):
 
         return x
 
+
 # 物理约束损失函数
 def div_loss(f, grad_z):
     Hx_x = torch.gradient(f[:,0], dim=2)[0]
@@ -55,6 +56,7 @@ def div_loss(f, grad_z):
     div_mag = torch.stack([Hx_x, Hy_y, grad_z[:,2]], dim=1)
 
     return torch.mean(torch.abs(div_mag.sum(dim=1)))
+
 
 def curl_loss(f, grad_z):
     Hx_y = torch.gradient(f[:,0], dim=1)[0]
@@ -67,6 +69,38 @@ def curl_loss(f, grad_z):
     return torch.mean(curl_mag)
 
 
+def mape_loss(output, target):
+    return (torch.mean(torch.abs(target - output)) / torch.mean(torch.abs(target))) * 100
+
+
+class MagneticFieldDataset(torch.utils.data.Dataset):
+    def __init__(self, datapath, scaling):
+        super(MagneticFieldDataset, self).__init__()
+        self.db_path = datapath
+        self.scaling = scaling
+        self.size = h5py.File(self.db_path, mode='r')['field'].shape[0]
+ 
+    def open_hdf5(self):
+        self.db = h5py.File(self.db_path, mode='r')
+
+    def __getitem__(self, idx):
+        if not hasattr(self, 'db'):
+            self.open_hdf5()
+    
+        f = self.db['field'][idx]
+        fx_z = np.gradient(f[0], axis=2)[:,:,1]
+        fy_z = np.gradient(f[1], axis=2)[:,:,1]
+        fz_z = np.gradient(f[2], axis=2)[:,:,1]
+        grad_z = np.stack((fx_z, fy_z, fz_z), axis=0)
+        grad_z = torch.from_numpy(grad_z.astype('float32'))
+        f_t = torch.from_numpy(f[:,:,:,1].astype('float32'))
+
+        return f_t * self.scaling, grad_z
+
+    def __len__(self):
+        return self.size
+
+
 if __name__ == "__main__":
     file_path = os.path.dirname(os.path.realpath(__file__))
     data_path = file_path + "/../../../data/tianchi_magfield_3D_96.h5"
@@ -74,9 +108,9 @@ if __name__ == "__main__":
     cfg = {
         "lr": 0.0001,
         "batch_size": 64,
-        "div_alpha": 0.01,
+        "div_alpha": 0.1,
         "curl_alpha": 1,
-        "cnum": 32,
+        "cnum": 16,
         "scaling": 10,
         "num_epochs": 200
     }
@@ -91,19 +125,12 @@ if __name__ == "__main__":
     optimizer = optim.Adam(model.parameters(), lr=cfg['lr'])
     criterion = nn.MSELoss()
 
-    # 数据加载和归一化
-    with h5py.File(data_path, mode='r') as db:
-        f = db['field']
-        fx_z = np.gradient(f[:,0], axis=3)[:,:,:,1]
-        fy_z = np.gradient(f[:,1], axis=3)[:,:,:,1]
-        fz_z = np.gradient(f[:,2], axis=3)[:,:,:,1]
-        grad_z = np.stack((fx_z, fy_z, fz_z), axis=1)
-        grad_z = torch.from_numpy(grad_z.astype('float32')).to(device)
-        f_t = torch.from_numpy(f[:,:,:,:,1].astype('float32'))
-
-    train_data, test_data = train_test_split(f_t, test_size=0.2, random_state=42)
-    train_loader = DataLoader(train_data * cfg['scaling'], batch_size=cfg['batch_size'], shuffle=False, drop_last=True)
+    dataset = MagneticFieldDataset(data_path, cfg['scaling'])
+    train_data, test_data = random_split(dataset, [0.8, 0.2], torch.Generator().manual_seed(42))
+    train_loader = DataLoader(train_data, batch_size=cfg['batch_size'], shuffle=True, drop_last=True)
+    test_loader = DataLoader(test_data, batch_size=1, shuffle=False)
     n_batch = len(train_loader.dataset) // cfg['batch_size']
+    n_test_batch = len(test_loader.dataset)
 
     # 训练
     for epoch in range(cfg['num_epochs']):
@@ -114,22 +141,22 @@ if __name__ == "__main__":
         total_curl = 0.0
         it = 0
 
-        for data in train_loader:
-            data = data.to(device)
-            grad_z_it = grad_z[it*cfg['batch_size']:(it+1)*cfg['batch_size']].to(device)
+        for field, grad_z in train_loader:
+            field = field.to(device)
+            grad_z = grad_z.to(device)
             optimizer.zero_grad()
-            outputs = model(data)
-            rec_loss = criterion(outputs, data)
-            div = div_loss(outputs, grad_z_it)
-            curl = curl_loss(outputs, grad_z_it)
-            loss = rec_loss + cfg['div_alpha'] * div + cfg['curl_alpha'] * curl
+            outputs = model(field)
+            rec = criterion(outputs, field)
+            div = div_loss(outputs, grad_z)
+            curl = curl_loss(outputs, grad_z)
+            loss = rec + cfg['div_alpha'] * div + cfg['curl_alpha'] * curl
             loss.backward()
             optimizer.step()
 
             total_loss += loss.item()
-            total_rec += loss.item()
-            total_div += loss.item()
-            total_curl += loss.item()
+            total_rec += rec.item()
+            total_div += div.item()
+            total_curl += curl.item()
             it += 1
 
         wandb.log({
@@ -138,3 +165,13 @@ if __name__ == "__main__":
             "div": total_div / n_batch,
             "curl": total_curl / n_batch
         })
+
+    model.eval()
+    with torch.no_grad():
+        total_mape = 0
+        for batch in test_loader:
+            input_images = batch.to(device)
+            outputs = model(input_images)
+            total_mape += mape_loss(outputs, input_images).item()
+
+        wandb.log({"test_mape": total_mape / n_test_batch,})
