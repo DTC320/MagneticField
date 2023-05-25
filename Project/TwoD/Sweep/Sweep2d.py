@@ -87,7 +87,7 @@ class MagneticFieldDataset(torch.utils.data.Dataset):
         if not hasattr(self, 'db'):
             self.open_hdf5()
     
-        f = self.db['field'][idx]
+        f = self.db['field'][idx] * self.scaling
         fx_z = np.gradient(f[0], axis=2)[:,:,1]
         fy_z = np.gradient(f[1], axis=2)[:,:,1]
         fz_z = np.gradient(f[2], axis=2)[:,:,1]
@@ -95,7 +95,7 @@ class MagneticFieldDataset(torch.utils.data.Dataset):
         grad_z = torch.from_numpy(grad_z.astype('float32'))
         f_t = torch.from_numpy(f[:,:,:,1].astype('float32'))
 
-        return f_t * self.scaling, grad_z
+        return f_t, grad_z
 
     def __len__(self):
         return self.size

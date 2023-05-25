@@ -1,5 +1,5 @@
 program: Sweep2d.py
-name: MagAE_2D_Phys_All
+name: MagAE_2D_Div_Curl
 project: MagAE_2D_hp-tuning
 entity: te-st
 
