@@ -169,9 +169,10 @@ if __name__ == "__main__":
     model.eval()
     with torch.no_grad():
         total_mape = 0
-        for batch in test_loader:
-            input_images = batch.to(device)
-            outputs = model(input_images)
-            total_mape += mape_loss(outputs, input_images).item()
+        for field, grad_z in test_loader:
+            field = field.to(device)
+            grad_z = grad_z.to(device)
+            outputs = model(field)
+            total_mape += mape_loss(outputs, field).item()
 
         wandb.log({"test_mape": total_mape / n_test_batch,})
