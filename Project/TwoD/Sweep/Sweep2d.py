@@ -49,12 +49,22 @@ class CNNAE(nn.Module):
         return x
 
 # 物理约束损失函数
-def compute_physical_loss(f, grad_z):
+def div_loss(f, grad_z):
     Hx_x = torch.gradient(f[:,0], dim=2)[0]
     Hy_y = torch.gradient(f[:,1], dim=1)[0]
     div_mag = torch.stack([Hx_x, Hy_y, grad_z[:,2]], dim=1)
 
     return torch.mean(torch.abs(div_mag.sum(dim=1)))
+
+def curl_loss(f, grad_z):
+    Hx_y = torch.gradient(f[:,0], dim=1)[0]
+    Hy_x = torch.gradient(f[:,1], dim=2)[0]
+    Hz_x = torch.gradient(f[:,2], dim=2)[0]
+    Hz_y = torch.gradient(f[:,2], dim=1)[0]
+    curl_vec = torch.stack([Hz_y - grad_z[:,1], grad_z[:,0] - Hz_x, Hy_x - Hx_y], dim=1)
+    curl_mag = curl_vec.square().sum(dim=1)
+
+    return torch.mean(curl_mag)
 
 
 if __name__ == "__main__":
@@ -62,15 +72,17 @@ if __name__ == "__main__":
     data_path = file_path + "/../../../data/tianchi_magfield_3D_96.h5"
 
     cfg = {
-        "lr": 0.001,
-        "batch_size": 32,
-        "alpha": 0.1,
-        "cnum": 16,
-        "scaling": 10
+        "lr": 0.0001,
+        "batch_size": 64,
+        "div_alpha": 0.01,
+        "curl_alpha": 1,
+        "cnum": 32,
+        "scaling": 10,
+        "num_epochs": 200
     }
 
     # 初始化WandB
-    wandb.init(config=cfg)
+    wandb.init(entity='te-st', project='MagAE_2D_hp-tuning', config=cfg)
     cfg = wandb.config
 
     # 创建模型和优化器
@@ -82,7 +94,6 @@ if __name__ == "__main__":
     # 数据加载和归一化
     with h5py.File(data_path, mode='r') as db:
         f = db['field']
-    
         fx_z = np.gradient(f[:,0], axis=3)[:,:,:,1]
         fy_z = np.gradient(f[:,1], axis=3)[:,:,:,1]
         fz_z = np.gradient(f[:,2], axis=3)[:,:,:,1]
@@ -91,30 +102,39 @@ if __name__ == "__main__":
         f_t = torch.from_numpy(f[:,:,:,:,1].astype('float32'))
 
     train_data, test_data = train_test_split(f_t, test_size=0.2, random_state=42)
-    train_loader = DataLoader(train_data * cfg['scaling'], batch_size=cfg['batch_size'], shuffle=False)
-    num_epochs = 200
+    train_loader = DataLoader(train_data * cfg['scaling'], batch_size=cfg['batch_size'], shuffle=False, drop_last=True)
+    n_batch = len(train_loader.dataset) // cfg['batch_size']
 
     # 训练
-    for epoch in range(num_epochs):
+    for epoch in range(cfg['num_epochs']):
         model.train()
         total_loss = 0.0
+        total_rec = 0.0
+        total_div = 0.0
+        total_curl = 0.0
         it = 0
 
         for data in train_loader:
-
             data = data.to(device)
+            grad_z_it = grad_z[it*cfg['batch_size']:(it+1)*cfg['batch_size']].to(device)
             optimizer.zero_grad()
             outputs = model(data)
             rec_loss = criterion(outputs, data)
-            phys_loss = compute_physical_loss(outputs, grad_z[it*cfg['batch_size']:(it+1)*cfg['batch_size']])
-            loss = rec_loss + cfg['alpha'] * phys_loss
+            div = div_loss(outputs, grad_z_it)
+            curl = curl_loss(outputs, grad_z_it)
+            loss = rec_loss + cfg['div_alpha'] * div + cfg['curl_alpha'] * curl
             loss.backward()
             optimizer.step()
 
             total_loss += loss.item()
+            total_rec += loss.item()
+            total_div += loss.item()
+            total_curl += loss.item()
             it += 1
 
-        train_loss = total_loss / (len(train_loader.dataset) / cfg['batch_size'])
-
-        wandb.log({"loss": train_loss})
-        print(f"Epoch [{epoch + 1}/{num_epochs}], Loss: {train_loss:.4f}")
+        wandb.log({
+            "loss": total_loss / n_batch,
+            "MSE": total_rec / n_batch,
+            "div": total_div / n_batch,
+            "curl": total_curl / n_batch
+        })
